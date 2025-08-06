@@ -8,6 +8,7 @@ import { motion } from "framer-motion"
 import { ArrowLeft, ArrowRight, Stethoscope } from "lucide-react"
 import { auth, googleProvider } from "@/lib/firebase"
 import { signInWithPopup } from "firebase/auth"
+import { githubProvider } from "@/lib/firebase"
 export default function AuthPage() {
   const [mode, setMode] = useState<'signup' | 'signin'>('signup');
   const [signupData, setSignupData] = useState({ email: '', password: '' });
@@ -38,6 +39,18 @@ export default function AuthPage() {
     } catch (error) {
       // Optionally show error toast
       console.error("Google sign-in error:", error);
+    }
+  };
+
+  // GitHub sign-in handler
+  const handleGithubSignIn = async () => {
+    if (!auth) return;
+    try {
+      await signInWithPopup(auth, githubProvider);
+      router.push(redirect);
+    } catch (error) {
+      // Optionally show error toast
+      console.error("GitHub sign-in error:", error);
     }
   };
 
@@ -137,6 +150,7 @@ export default function AuthPage() {
                     <Button 
                       variant="outline" 
                       className="w-full border-2 border-black rounded-md shadow-lg hover:shadow-xl transition-all duration-300"
+                      onClick={handleGithubSignIn}
                     >
                       Sign in with GitHub
                     </Button>

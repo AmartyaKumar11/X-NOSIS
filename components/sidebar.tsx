@@ -13,6 +13,7 @@ const navigation = [
   { name: "Chat", href: "/chat", icon: MessageSquare },
   { name: "Upload", href: "/upload", icon: Upload },
   { name: "History", href: "/history", icon: History },
+  { name: "Profile", href: "/profile", icon: Stethoscope },
   { name: "Settings", href: "/settings", icon: Settings },
 ]
 
