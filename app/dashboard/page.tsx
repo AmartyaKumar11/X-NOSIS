@@ -157,7 +157,7 @@ export default function DashboardPage() {
                     <Link href="/upload">
                       <Button className="w-full justify-start py-6 text-lg border-2 border-black rounded-md shadow-lg hover:shadow-xl transition-all duration-300" variant="outline">
                         <Upload className="mr-2 h-4 w-4" />
-                        Upload Document
+                        Analyse Report
                       </Button>
                     </Link>
                     <Link href="/history">

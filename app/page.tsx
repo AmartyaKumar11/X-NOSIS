@@ -57,9 +57,9 @@ export default function LandingPage() {
             <span className="text-primary">At Your Fingertips</span>
           </h2>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Get instant, accurate medical insights powered by advanced AI. Upload documents, ask questions, and receive professional-grade assistance.
+            Get instant, accurate medical insights powered by advanced AI. Analyse reports, ask questions, and receive professional-grade assistance.
           </p>
-          <Link href="/auth?redirect=/chat">
+          <Link href="/dashboard">
             <motion.div 
               whileHover={{ scale: 1.05, boxShadow: "0 0 16px #e75480" }} 
               style={{ display: 'inline-block', background: 'transparent' }}
@@ -69,7 +69,7 @@ export default function LandingPage() {
                 size="lg"
                 className="text-lg px-8 py-6 rounded-md border-2 border-black bg-transparent shadow-lg hover:shadow-xl transition-all duration-300"
               >
-                Ask a Question
+                Begin Diagnosis
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </motion.div>
@@ -147,7 +147,7 @@ export default function LandingPage() {
                   <Link href="/auth?redirect=/upload">
                     <motion.div whileHover={{ scale: 1.07, boxShadow: "0 0 16px #e75480" }}>
                       <Button variant="outline" size="lg" className="w-full sm:w-auto border-2 border-black shadow-lg hover:shadow-xl transition-all duration-300">
-                        Upload Documents
+                        Analyse Report
                       </Button>
                     </motion.div>
                   </Link>
