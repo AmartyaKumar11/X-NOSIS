@@ -1,6 +1,31 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect } from "react";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { useTheme } from "next-themes";
+
+function DarkModeSwitch() {
+  const { theme, setTheme } = useTheme();
+  const [checked, setChecked] = useState(theme === "dark");
+  useEffect(() => {
+    setChecked(theme === "dark");
+  }, [theme]);
+  const handleChange = (value: boolean) => {
+    setChecked(value);
+    setTheme(value ? "dark" : "light");
+    document.body.classList.add("darkmode-transition");
+    setTimeout(() => {
+      document.body.classList.remove("darkmode-transition");
+    }, 800);
+  };
+  return (
+    <>
+      <Switch id="dark-mode" checked={checked} onCheckedChange={handleChange} />
+      <Label htmlFor="dark-mode">{checked ? "Dark Mode" : "Light Mode"}</Label>
+    </>
+  );
+}
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -84,6 +109,10 @@ export function Sidebar() {
             Always consult with healthcare professionals for medical decisions.
           </p>
         </Card>
+        {/* Dark Mode Switch */}
+        <div className="mt-6 flex items-center space-x-2">
+          <DarkModeSwitch />
+        </div>
       </div>
     </div>
   )
