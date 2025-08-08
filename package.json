@@ -4,11 +4,11 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "dev": "next dev",
+    "dev": "next dev -p 3000",
     "lint": "next lint",
     "start": "next start",
     "dev:full": "npm-run-all --parallel dev backend",
-    "backend": "cd backend && ..\\venv\\Scripts\\python.exe -m uvicorn main:app --reload"
+    "backend": "cd backend && ..\\venv\\Scripts\\python.exe -m uvicorn main:app --reload --port 8000"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "latest",

@@ -59,7 +59,7 @@ export default function LandingPage() {
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
             Get instant, accurate medical insights powered by advanced AI. Analyse reports, ask questions, and receive professional-grade assistance.
           </p>
-          <Link href="/dashboard">
+          <Link href="/auth?redirect=/dashboard">
             <motion.div 
               whileHover={{ scale: 1.05, boxShadow: "0 0 16px #e75480" }} 
               style={{ display: 'inline-block', background: 'transparent' }}

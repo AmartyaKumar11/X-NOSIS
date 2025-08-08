@@ -1,0 +1,13 @@
+
+    Patient is a 65-year-old male presenting with acute chest pain, shortness of breath, 
+    and diaphoresis. Past medical history significant for hypertension, diabetes mellitus, 
+    and coronary artery disease. Current medications include metformin 1000mg BID, 
+    lisinopril 10mg daily, and atorvastatin 40mg nightly. 
+    
+    Physical examination reveals blood pressure 180/95, heart rate 110 bpm, irregular rhythm. 
+    Patient reports severe chest pain radiating to left arm. EKG shows ST elevation in leads II, III, aVF. 
+    Troponin levels elevated at 15.2 ng/mL. 
+    
+    Assessment: Acute ST-elevation myocardial infarction (STEMI). 
+    Plan: Emergency cardiac catheterization, aspirin 325mg, clopidogrel loading dose.
+    

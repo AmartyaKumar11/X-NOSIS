@@ -2,3 +2,23 @@ fastapi
 uvicorn
 python-multipart
 pdfplumber
+
+# AI/ML packages
+torch
+torchvision
+transformers
+scikit-learn
+numpy
+opencv-python
+pillow
+
+# Medical packages
+pydicom
+nibabel
+
+# Database
+sqlite3
+
+# Additional utilities
+requests
+aiofiles

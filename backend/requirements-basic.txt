@@ -1,0 +1,7 @@
+# Basic requirements for server startup
+fastapi
+uvicorn
+python-multipart
+pdfplumber
+requests
+aiofiles
