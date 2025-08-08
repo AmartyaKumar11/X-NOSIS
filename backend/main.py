@@ -300,54 +300,162 @@ async def health_check():
 
 @app.post("/analyze/text")
 async def analyze_medical_text(file: UploadFile = File(...)):
-    """Analyze medical text using Bio_ClinicalBERT"""
+    """
+    Analyze medical text using Bio_ClinicalBERT and advanced NER
+    
+    Accepts: PDF, TXT, DOC files
+    Returns: Structured medical analysis with entities, diagnosis, and summary
+    """
+    start_time = datetime.now()
+    
     try:
+        # Validate file
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No file provided")
+        
+        # Check file size (max 10MB)
+        file_size = 0
+        content = await file.read()
+        file_size = len(content)
+        
+        if file_size > 10 * 1024 * 1024:  # 10MB limit
+            raise HTTPException(status_code=413, detail="File too large (max 10MB)")
+        
+        if file_size == 0:
+            raise HTTPException(status_code=400, detail="Empty file")
+        
+        # Reset file pointer
+        await file.seek(0)
+        
         # Load models if not already loaded
         await load_models()
         
-        # Extract text from file
-        if file.content_type == "application/pdf":
-            with pdfplumber.open(file.file) as pdf:
-                text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+        # Extract text based on file type
+        text = ""
+        file_extension = file.filename.lower().split('.')[-1] if '.' in file.filename else ''
+        
+        if file.content_type == "application/pdf" or file_extension == 'pdf':
+            try:
+                with pdfplumber.open(file.file) as pdf:
+                    text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"PDF processing failed: {str(e)}")
+        
+        elif file.content_type.startswith("text/") or file_extension in ['txt', 'doc', 'docx']:
+            try:
+                text = content.decode("utf-8")
+            except UnicodeDecodeError:
+                try:
+                    text = content.decode("latin-1")
+                except UnicodeDecodeError:
+                    raise HTTPException(status_code=400, detail="Unable to decode text file")
+        
         else:
-            content = await file.read()
-            text = content.decode("utf-8")
+            raise HTTPException(status_code=400, detail="Unsupported file type. Use PDF, TXT, or DOC files")
         
+        # Validate extracted text
         if not text.strip():
-            raise HTTPException(status_code=400, detail="No text found in file")
+            raise HTTPException(status_code=400, detail="No readable text found in file")
         
-        # Enhanced medical text analysis with Bio_ClinicalBERT and NER
-        start_time = datetime.now()
+        if len(text) > 50000:  # 50k character limit
+            text = text[:50000]
+            logging.warning(f"Text truncated to 50k characters for file: {file.filename}")
         
-        # Load models if not already loaded
-        await load_models()
-        
-        # Perform medical NER and analysis
+        # Perform advanced medical analysis
         analysis_results = await analyze_medical_text_advanced(text)
         
         # Calculate processing time
         processing_time = (datetime.now() - start_time).total_seconds()
-        analysis_results["processing_time"] = processing_time
+        analysis_results["processing_time"] = round(processing_time, 3)
+        
+        # Add file metadata
+        analysis_results["file_info"] = {
+            "filename": file.filename,
+            "file_size": file_size,
+            "file_type": file.content_type or f"text/{file_extension}",
+            "text_length": len(text)
+        }
         
         # Save results to database
         analysis_id = save_analysis_result(
-            user_id="demo_user",  # Will be replaced with actual user ID
+            user_id="demo_user",  # TODO: Replace with actual user ID from auth
             file_name=file.filename,
             file_type="text",
-            analysis_type="medical_text",
+            analysis_type="advanced_medical_ner",
             results=analysis_results,
             confidence_score=analysis_results["confidence_score"]
         )
         
         return {
+            "success": True,
             "analysis_id": analysis_id,
             "status": "completed",
-            "results": analysis_results
+            "message": "Medical text analysis completed successfully",
+            "results": analysis_results,
+            "timestamp": datetime.now().isoformat()
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logging.error(f"Text analysis error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+        processing_time = (datetime.now() - start_time).total_seconds()
+        error_msg = f"Analysis failed: {str(e)}"
+        logging.error(f"Text analysis error for file {file.filename if file else 'unknown'}: {error_msg}")
+        
+        return {
+            "success": False,
+            "status": "error",
+            "error": error_msg,
+            "processing_time": round(processing_time, 3),
+            "timestamp": datetime.now().isoformat()
+        }
+
+@app.post("/analyze/batch")
+async def analyze_multiple_texts(files: list[UploadFile] = File(...)):
+    """
+    Analyze multiple medical text files in batch
+    
+    Accepts: Multiple PDF, TXT, DOC files
+    Returns: Array of analysis results
+    """
+    if len(files) > 10:
+        raise HTTPException(status_code=400, detail="Maximum 10 files allowed per batch")
+    
+    results = []
+    start_time = datetime.now()
+    
+    for i, file in enumerate(files):
+        try:
+            # Analyze each file individually
+            result = await analyze_medical_text(file)
+            result["batch_index"] = i
+            results.append(result)
+            
+        except Exception as e:
+            error_result = {
+                "success": False,
+                "batch_index": i,
+                "filename": file.filename if file else f"file_{i}",
+                "status": "error",
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+            results.append(error_result)
+    
+    total_time = (datetime.now() - start_time).total_seconds()
+    successful = sum(1 for r in results if r.get("success", False))
+    
+    return {
+        "success": True,
+        "batch_summary": {
+            "total_files": len(files),
+            "successful": successful,
+            "failed": len(files) - successful,
+            "total_processing_time": round(total_time, 3)
+        },
+        "results": results,
+        "timestamp": datetime.now().isoformat()
+    }
 
 @app.post("/analyze/image")
 async def analyze_medical_image(file: UploadFile = File(...)):
@@ -397,6 +505,68 @@ async def analyze_medical_image(file: UploadFile = File(...)):
     except Exception as e:
         logging.error(f"Image analysis error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+@app.post("/analyze/text-direct")
+async def analyze_text_direct(request: dict):
+    """
+    Analyze medical text directly without file upload
+    
+    Body: {"text": "medical text to analyze"}
+    Returns: Structured medical analysis
+    """
+    try:
+        text = request.get("text", "").strip()
+        
+        if not text:
+            raise HTTPException(status_code=400, detail="No text provided")
+        
+        if len(text) > 50000:
+            raise HTTPException(status_code=400, detail="Text too long (max 50,000 characters)")
+        
+        start_time = datetime.now()
+        
+        # Load models if not already loaded
+        await load_models()
+        
+        # Perform analysis
+        analysis_results = await analyze_medical_text_advanced(text)
+        
+        # Calculate processing time
+        processing_time = (datetime.now() - start_time).total_seconds()
+        analysis_results["processing_time"] = round(processing_time, 3)
+        
+        # Add text metadata
+        analysis_results["text_info"] = {
+            "text_length": len(text),
+            "word_count": len(text.split()),
+            "input_method": "direct_text"
+        }
+        
+        # Save results to database
+        analysis_id = save_analysis_result(
+            user_id="demo_user",
+            file_name="direct_text_input",
+            file_type="text",
+            analysis_type="direct_text_analysis",
+            results=analysis_results,
+            confidence_score=analysis_results["confidence_score"]
+        )
+        
+        return {
+            "success": True,
+            "analysis_id": analysis_id,
+            "status": "completed",
+            "message": "Direct text analysis completed successfully",
+            "results": analysis_results,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = f"Direct text analysis failed: {str(e)}"
+        logging.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
 
 @app.get("/analysis/{analysis_id}")
 async def get_analysis_result(analysis_id: int):

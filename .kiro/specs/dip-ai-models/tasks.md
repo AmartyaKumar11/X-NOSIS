@@ -32,6 +32,8 @@
     - Add entity relationship mapping and medical context understanding
     - _Requirements: 1.1, 1.2, 1.3_
 
+
+
   - [ ] 2.3 Create medical text analysis API endpoint
     - Build FastAPI endpoint for medical text analysis requests
     - Implement file upload handling for various text formats (PDF, TXT, DOC)
