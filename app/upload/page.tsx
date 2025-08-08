@@ -24,9 +24,15 @@ export default function UploadPage() {
   const [analyses, setAnalyses] = useState<{ [id: string]: any }>({});
   const [analysingId, setAnalysingId] = useState<string | null>(null);
 
+  const [uploadedFiles, setUploadedFiles] = useState<{[key: string]: File}>({});
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     acceptedFiles.forEach((file) => {
       const id = Date.now().toString() + Math.random().toString();
+      
+      // Store the actual file object
+      setUploadedFiles(prev => ({ ...prev, [id]: file }));
+      
       setFiles(prev => [...prev, {
         id,
         name: file.name,
@@ -41,22 +47,50 @@ export default function UploadPage() {
   const handleAnalyse = async (file: UploadedFile) => {
     setAnalysingId(file.id);
     setAnalyses(prev => ({ ...prev, [file.id]: null }));
+    
+    // Get the actual uploaded file
+    const actualFile = uploadedFiles[file.id];
+    if (!actualFile) {
+      setAnalyses(prev => ({ ...prev, [file.id]: { error: "File not found. Please re-upload the file." } }));
+      setAnalysingId(null);
+      return;
+    }
+    
     const formData = new FormData();
-    // Recreate a File object from the uploaded file info
-    // This assumes the file is still available in the dropzone's acceptedFiles
-    // If not, you may need to store the File object itself in state
-    // For now, we assume the file is available
-    // (If you want to support page reload, you need to persist the File object)
-    formData.append("file", new File([file.name], file.name));
+    formData.append("file", actualFile);
+    
     try {
-      const res = await fetch("/api/analyze", {
+      // Call our enhanced backend API
+      const res = await fetch("http://localhost:8000/analyze/text", {
         method: "POST",
         body: formData,
       });
-      if (!res.ok) throw new Error(await res.text());
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Analysis failed: ${errorText}`);
+      }
+      
       const data = await res.json();
-      setAnalyses(prev => ({ ...prev, [file.id]: data }));
+      
+      // Transform the response to match the expected format
+      const transformedData = {
+        success: data.success,
+        analysis_id: data.analysis_id,
+        text: data.results?.extracted_text || testContent,
+        result: {
+          medical_entities: data.results?.medical_entities || [],
+          entity_summary: data.results?.entity_summary || {},
+          differential_diagnosis: data.results?.differential_diagnosis || [],
+          summary: data.results?.summary || "Analysis completed",
+          confidence_score: data.results?.confidence_score || 0,
+          processing_time: data.results?.processing_time || 0
+        }
+      };
+      
+      setAnalyses(prev => ({ ...prev, [file.id]: transformedData }));
     } catch (err) {
+      console.error("Analysis error:", err);
       setAnalyses(prev => ({ ...prev, [file.id]: { error: String(err) } }));
     }
     setAnalysingId(null);
@@ -74,6 +108,18 @@ export default function UploadPage() {
 
   const deleteFile = (id: string) => {
     setFiles(prev => prev.filter(f => f.id !== id));
+    // Also remove from uploaded files
+    setUploadedFiles(prev => {
+      const newFiles = { ...prev };
+      delete newFiles[id];
+      return newFiles;
+    });
+    // Remove analysis if exists
+    setAnalyses(prev => {
+      const newAnalyses = { ...prev };
+      delete newAnalyses[id];
+      return newAnalyses;
+    });
   };
 
   const formatFileSize = (bytes: number) => {
@@ -172,21 +218,111 @@ export default function UploadPage() {
           {analysingId === file.id ? "Analysing..." : "Analyse"}
         </Button>
                       </div>
-                      {/* Analysis Card */}
+                      {/* Enhanced Analysis Results Card */}
                       {analyses[file.id] && (
                         <Card className="mt-4 border border-primary/40 bg-background">
                           <CardHeader>
-                            <CardTitle>ClinicalBERT Analysis</CardTitle>
+                            <CardTitle className="flex items-center gap-2">
+                              🧠 Medical AI Analysis
+                              {analyses[file.id].success && (
+                                <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                                  ✅ Completed
+                                </span>
+                              )}
+                            </CardTitle>
                           </CardHeader>
                           <CardContent>
                             {analyses[file.id].error ? (
-                              <p className="text-destructive">Error: {analyses[file.id].error}</p>
+                              <div className="text-destructive">
+                                <p className="font-semibold">❌ Analysis Error:</p>
+                                <p className="text-sm mt-1">{analyses[file.id].error}</p>
+                              </div>
                             ) : (
-                              <div>
-                                <p className="text-sm mb-2 text-muted-foreground">Original Text:</p>
-                                <pre className="whitespace-pre-wrap text-xs mb-4 bg-muted/10 p-2 rounded">{analyses[file.id].text}</pre>
-                                <p className="text-sm mb-2 text-muted-foreground">Model Output:</p>
-                                <pre className="whitespace-pre-wrap text-xs bg-muted/10 p-2 rounded">{JSON.stringify(analyses[file.id].result, null, 2)}</pre>
+                              <div className="space-y-4">
+                                {/* Summary */}
+                                <div>
+                                  <h4 className="font-semibold text-sm mb-2">📝 Clinical Summary:</h4>
+                                  <p className="text-sm bg-blue-50 p-3 rounded border-l-4 border-blue-400">
+                                    {analyses[file.id].result?.summary || "Analysis completed"}
+                                  </p>
+                                </div>
+
+                                {/* Entity Summary */}
+                                {analyses[file.id].result?.entity_summary && (
+                                  <div>
+                                    <h4 className="font-semibold text-sm mb-2">📊 Entities Found:</h4>
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                      <div className="bg-red-50 p-2 rounded">
+                                        <span className="font-medium">Symptoms:</span> {analyses[file.id].result.entity_summary.symptoms || 0}
+                                      </div>
+                                      <div className="bg-orange-50 p-2 rounded">
+                                        <span className="font-medium">Conditions:</span> {analyses[file.id].result.entity_summary.conditions || 0}
+                                      </div>
+                                      <div className="bg-green-50 p-2 rounded">
+                                        <span className="font-medium">Medications:</span> {analyses[file.id].result.entity_summary.medications || 0}
+                                      </div>
+                                      <div className="bg-purple-50 p-2 rounded">
+                                        <span className="font-medium">Total:</span> {analyses[file.id].result.entity_summary.total_entities || 0}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Medical Entities */}
+                                {analyses[file.id].result?.medical_entities && analyses[file.id].result.medical_entities.length > 0 && (
+                                  <div>
+                                    <h4 className="font-semibold text-sm mb-2">🏷️ Medical Entities:</h4>
+                                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                                      {analyses[file.id].result.medical_entities.slice(0, 10).map((entity: any, idx: number) => (
+                                        <div key={idx} className="flex justify-between items-center text-xs bg-gray-50 p-2 rounded">
+                                          <span className="font-medium">{entity.text}</span>
+                                          <div className="flex gap-2">
+                                            <span className={`px-2 py-1 rounded text-xs ${
+                                              entity.label === 'SYMPTOM' ? 'bg-red-100 text-red-800' :
+                                              entity.label === 'CONDITION' ? 'bg-orange-100 text-orange-800' :
+                                              entity.label === 'MEDICATION' ? 'bg-green-100 text-green-800' :
+                                              'bg-blue-100 text-blue-800'
+                                            }`}>
+                                              {entity.label}
+                                            </span>
+                                            <span className="text-gray-600">{(entity.confidence * 100).toFixed(0)}%</span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Differential Diagnosis */}
+                                {analyses[file.id].result?.differential_diagnosis && analyses[file.id].result.differential_diagnosis.length > 0 && (
+                                  <div>
+                                    <h4 className="font-semibold text-sm mb-2">🩺 Differential Diagnosis:</h4>
+                                    <div className="space-y-2">
+                                      {analyses[file.id].result.differential_diagnosis.slice(0, 3).map((dx: any, idx: number) => (
+                                        <div key={idx} className="bg-yellow-50 p-3 rounded border-l-4 border-yellow-400">
+                                          <div className="flex justify-between items-start">
+                                            <span className="font-medium text-sm">{dx.condition}</span>
+                                            <span className="text-xs bg-yellow-200 px-2 py-1 rounded">
+                                              {(dx.confidence * 100).toFixed(0)}%
+                                            </span>
+                                          </div>
+                                          <p className="text-xs text-gray-600 mt-1">{dx.reasoning}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Analysis Metadata */}
+                                <div className="text-xs text-gray-500 border-t pt-2">
+                                  <div className="flex justify-between">
+                                    <span>Confidence: {((analyses[file.id].result?.confidence_score || 0) * 100).toFixed(0)}%</span>
+                                    <span>Processing: {(analyses[file.id].result?.processing_time || 0).toFixed(2)}s</span>
+                                    {analyses[file.id].analysis_id && (
+                                      <span>ID: #{analyses[file.id].analysis_id}</span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
                             )}
                           </CardContent>
