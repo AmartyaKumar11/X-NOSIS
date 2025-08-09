@@ -42,7 +42,7 @@ export function useVoiceControl({
       /(?:create|make|add)(?:\s+a)?(?:\s+new)?\s+(?:patient|user|person)\s+([a-zA-Z\s]+?)(?:\s+(?:born|with|and|$))/i,
       /([a-zA-Z\s]+?)(?:\s+(?:born|with|and|as a patient|$))/i
     ]
-    
+
     for (const pattern of namePatterns) {
       const match = text.match(pattern)
       if (match && match[1]) {
@@ -65,7 +65,7 @@ export function useVoiceControl({
       /([0-9]{1,2}(?:st|nd|rd|th)?\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-zA-Z]*\s+[0-9]{4})/i,
       /([0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{4})/i
     ]
-    
+
     for (const pattern of datePatterns) {
       const match = text.match(pattern)
       if (match && match[1]) {
@@ -110,16 +110,16 @@ export function useVoiceControl({
       handler: (matches) => {
         console.log('🎯 CREATE_PATIENT_WITH_NAME matches:', matches)
         let name = matches[1]?.trim()
-        
+
         // Clean up the name - remove common words that might get captured
         if (name) {
           name = name.replace(/^(named|called)\s+/i, '').trim()
           name = name.replace(/\s+(born|with|and).*$/i, '').trim()
         }
-        
+
         console.log('Cleaned name:', name)
         console.log('onCreatePatient function exists:', !!onCreatePatient)
-        
+
         if (name && onCreatePatient) {
           console.log('🎉 CALLING onCreatePatient with:', name)
           onCreatePatient({
@@ -147,16 +147,16 @@ export function useVoiceControl({
       handler: (matches) => {
         console.log('Simple create patient matches:', matches)
         let name = matches[1]?.trim()
-        
+
         // Clean up the name
         if (name) {
           name = name.replace(/^(named|called)\s+/i, '').trim()
           name = name.replace(/\s+(born|with|and).*$/i, '').trim()
         }
-        
+
         console.log('Cleaned name:', name)
         console.log('onCreatePatient function:', onCreatePatient)
-        
+
         if (name && onCreatePatient) {
           console.log('🎉 CALLING onCreatePatient with:', name)
           onCreatePatient({
@@ -197,14 +197,14 @@ export function useVoiceControl({
       handler: (matches) => {
         console.log('🗑️ Simple delete matches:', matches)
         let patientName = matches[1]?.trim()
-        
+
         // Clean up the name
         if (patientName) {
           patientName = patientName.replace(/^(patient|user|person)\s+/i, '').trim()
           patientName = patientName.replace(/^(named|called)\s+/i, '').trim()
           patientName = patientName.replace(/\s+(from|in|the|record|records|system|database).*$/i, '').trim()
         }
-        
+
         console.log('🗑️ Cleaned patient name:', patientName)
         if (patientName && onDeletePatient) {
           onDeletePatient(patientName)
@@ -219,13 +219,13 @@ export function useVoiceControl({
       handler: (matches) => {
         console.log('🗑️ Flexible delete matches:', matches)
         let patientName = matches[1]?.trim()
-        
+
         // Clean up the name - remove common words
         if (patientName) {
           patientName = patientName.replace(/^(named|called)\s+/i, '').trim()
           patientName = patientName.replace(/\s+(from|in|the|record|records|system|database).*$/i, '').trim()
         }
-        
+
         console.log('🗑️ Cleaned patient name:', patientName)
         if (patientName && onDeletePatient) {
           onDeletePatient(patientName)
@@ -239,12 +239,12 @@ export function useVoiceControl({
       action: 'NAVIGATE_FLEXIBLE',
       handler: (matches) => {
         let destination = matches[1]?.toLowerCase()
-        
+
         // Handle alternative names
         if (destination === 'patient list' || destination === 'patient page') {
           destination = 'patients'
         }
-        
+
         console.log('Navigate to:', destination)
         if (destination && onNavigate) {
           onNavigate(`/${destination}`)
@@ -299,7 +299,7 @@ export function useVoiceControl({
       // Handle ordinal dates like "6th August 2023"
       const ordinalPattern = /([0-9]{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-zA-Z]*\s+([0-9]{4})/i
       const ordinalMatch = dateStr.match(ordinalPattern)
-      
+
       if (ordinalMatch) {
         const day = ordinalMatch[1].padStart(2, '0')
         const monthMap: { [key: string]: string } = {
@@ -309,7 +309,7 @@ export function useVoiceControl({
         }
         const month = monthMap[ordinalMatch[2].toLowerCase().substring(0, 3)]
         const year = ordinalMatch[3]
-        
+
         if (month) {
           return `${year}-${month}-${day}`
         }
@@ -318,7 +318,7 @@ export function useVoiceControl({
       // Handle numeric dates like "06/08/2023" or "06-08-2023"
       const numericPattern = /([0-9]{1,2})[\/\-]([0-9]{1,2})[\/\-]([0-9]{4})/
       const numericMatch = dateStr.match(numericPattern)
-      
+
       if (numericMatch) {
         const day = numericMatch[1].padStart(2, '0')
         const month = numericMatch[2].padStart(2, '0')
@@ -340,46 +340,46 @@ export function useVoiceControl({
     console.log('Original text:', text)
     console.log('Processed text:', lowerText)
     console.log('Available handlers:', { onCreatePatient: !!onCreatePatient, onSearch: !!onSearch, onNavigate: !!onNavigate })
-    
+
     for (let i = 0; i < commands.length; i++) {
       const command = commands[i]
       console.log(`Testing pattern ${i + 1} (${command.action}):`, command.pattern)
-      
+
       const matches = lowerText.match(command.pattern)
       if (matches) {
         console.log(`✅ MATCH FOUND for ${command.action}:`, matches)
         console.log('Calling handler...')
-        
+
         try {
           command.handler(matches)
           console.log('Handler executed successfully')
         } catch (error) {
           console.error('Handler error:', error)
         }
-        
+
         // Call the callback to close dialog
         if (onCommandProcessed) {
           setTimeout(() => {
             onCommandProcessed()
           }, 1000) // Small delay to show feedback
         }
-        
+
         return true
       } else {
         console.log(`❌ No match for pattern ${i + 1}`)
       }
     }
-    
+
     console.log('❌ NO COMMANDS MATCHED')
     console.log('=== END PROCESSING ===')
-    
+
     // Still close dialog even if no command matched
     if (onCommandProcessed) {
       setTimeout(() => {
         onCommandProcessed()
       }, 1000)
     }
-    
+
     return false
   }
 
@@ -387,19 +387,19 @@ export function useVoiceControl({
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-      
+
       if (SpeechRecognition) {
         setIsSupported(true)
         const recognition = new SpeechRecognition()
-        
+
         recognition.continuous = true
         recognition.interimResults = true
         recognition.lang = 'en-US'
-        
+
         recognition.onstart = () => {
           setIsListening(true)
         }
-        
+
         recognition.onend = () => {
           setIsListening(false)
           // Clear silence timer when recognition ends
@@ -408,32 +408,32 @@ export function useVoiceControl({
             silenceTimerRef.current = null
           }
         }
-        
+
         recognition.onresult = (event) => {
           let finalTranscript = ''
           let interimTranscript = ''
-          
+
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript
-            
+
             if (event.results[i].isFinal) {
               finalTranscript += transcript
             } else {
               interimTranscript += transcript
             }
           }
-          
+
           // Update transcript with interim results for real-time display
           const currentTranscript = finalTranscript || interimTranscript
           if (currentTranscript) {
             setTranscript(currentTranscript)
             lastTranscriptRef.current = currentTranscript
-            
+
             // Reset silence timer when speech is detected
             if (silenceTimerRef.current) {
               clearTimeout(silenceTimerRef.current)
             }
-            
+
             // Set new silence timer (3 seconds)
             silenceTimerRef.current = setTimeout(() => {
               if (finalTranscript || lastTranscriptRef.current) {
@@ -444,12 +444,12 @@ export function useVoiceControl({
             }, 3000)
           }
         }
-        
+
         recognition.onerror = (event) => {
           console.error('Speech recognition error:', event.error)
           setIsListening(false)
         }
-        
+
         recognitionRef.current = recognition
       } else {
         setIsSupported(false)
@@ -467,13 +467,13 @@ export function useVoiceControl({
     if (recognitionRef.current && isListening) {
       recognitionRef.current.stop()
     }
-    
+
     // Clear silence timer
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current)
       silenceTimerRef.current = null
     }
-    
+
     // Reset transcript
     setTranscript('')
     lastTranscriptRef.current = ''

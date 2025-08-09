@@ -37,6 +37,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
   { name: "Chat", href: "/chat", icon: MessageSquare },
   { name: "Patients", href: "/patients", icon: Users },
+  { name: "AI Analysis", href: "/analysis", icon: BarChart3 },
   { name: "Analyse Report", href: "/upload", icon: Upload },
   { name: "History", href: "/history", icon: History },
   { name: "Profile", href: "/profile", icon: Stethoscope },

@@ -1,6 +1,7 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import pdfplumber
 import asyncio
 import logging
@@ -48,6 +49,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files for avatar uploads
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Global model storage (lazy loading)
 models = {
@@ -707,6 +712,72 @@ async def create_patient(patient_data: dict):
         logging.error(f"Error creating patient: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to create patient: {str(e)}")
 
+@app.post("/patients/{patient_id}/avatar")
+async def upload_patient_avatar(patient_id: str, avatar: UploadFile = File(...)):
+    """Upload patient avatar/photo"""
+    try:
+        # Validate file type
+        if not avatar.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="File must be an image")
+        
+        # Validate file size (max 5MB)
+        avatar_data = await avatar.read()
+        if len(avatar_data) > 5 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Image must be less than 5MB")
+        
+        # Create uploads directory if it doesn't exist
+        uploads_dir = "uploads/avatars"
+        os.makedirs(uploads_dir, exist_ok=True)
+        
+        # Generate unique filename
+        import uuid
+        file_extension = avatar.filename.split('.')[-1] if '.' in avatar.filename else 'jpg'
+        filename = f"{patient_id}_{uuid.uuid4().hex[:8]}.{file_extension}"
+        file_path = os.path.join(uploads_dir, filename)
+        
+        # Save file
+        with open(file_path, "wb") as f:
+            f.write(avatar_data)
+        
+        # Update patient metadata with avatar URL
+        avatar_url = f"/uploads/avatars/{filename}"
+        
+        conn = sqlite3.connect('dip_analysis.db')
+        cursor = conn.cursor()
+        
+        # Get current metadata
+        cursor.execute('SELECT metadata FROM patients WHERE id = ?', (patient_id,))
+        result = cursor.fetchone()
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        current_metadata = json.loads(result[0]) if result[0] else {}
+        current_metadata['avatar_url'] = avatar_url
+        
+        # Update patient with new avatar URL
+        cursor.execute('''
+            UPDATE patients 
+            SET metadata = ?, updated_at = CURRENT_TIMESTAMP 
+            WHERE id = ?
+        ''', (json.dumps(current_metadata), patient_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return {
+            "success": True,
+            "avatar_url": avatar_url,
+            "message": "Avatar uploaded successfully",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error uploading avatar: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to upload avatar: {str(e)}")
+
 @app.get("/patients")
 async def get_patients():
     """Get all patients with basic statistics"""
@@ -716,12 +787,12 @@ async def get_patients():
         
         cursor.execute('''
             SELECT 
-                p.id, p.name, p.date_of_birth, p.created_at, p.updated_at,
+                p.id, p.name, p.date_of_birth, p.created_at, p.updated_at, p.metadata,
                 COUNT(pd.id) as document_count,
                 MAX(pd.uploaded_at) as last_activity
             FROM patients p
             LEFT JOIN patient_documents pd ON p.id = pd.patient_id
-            GROUP BY p.id, p.name, p.date_of_birth, p.created_at, p.updated_at
+            GROUP BY p.id, p.name, p.date_of_birth, p.created_at, p.updated_at, p.metadata
             ORDER BY p.updated_at DESC
         ''')
         
@@ -733,8 +804,9 @@ async def get_patients():
                 "date_of_birth": row[2],
                 "created_at": row[3],
                 "updated_at": row[4],
-                "document_count": row[5] or 0,
-                "last_activity": row[6]
+                "metadata": json.loads(row[5]) if row[5] else {},
+                "document_count": row[6] or 0,
+                "last_activity": row[7]
             })
         
         conn.close()

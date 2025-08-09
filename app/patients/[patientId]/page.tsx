@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { CustomDialog, CustomDialogContent, CustomDialogHeader, CustomDialogTitle, CustomDialogClose } from "@/components/ui/custom-dialog"
 import { VoiceControl } from "@/components/voice-control"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft, Plus, Search, FolderPlus, Camera, TestTube, Calendar, FileText, Folder, User, Edit, Trash2 } from 'lucide-react'
+import { ArrowLeft, Plus, Search, FolderPlus, Camera, TestTube, Calendar, FileText, Folder, User, Edit, Trash2, Upload } from 'lucide-react'
 import { Sidebar } from "@/components/sidebar"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
@@ -78,6 +78,8 @@ export default function PatientDetailPage() {
     allergies: "",
     emergency_contact: ""
   })
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
 
   useEffect(() => {
     if (patientId) {
@@ -133,6 +135,7 @@ export default function PatientDetailPage() {
 
   const updatePatient = async () => {
     try {
+      // First update patient data
       const patientData = {
         name: editPatient.name,
         date_of_birth: editPatient.date_of_birth || null,
@@ -154,12 +157,30 @@ export default function PatientDetailPage() {
         body: JSON.stringify(patientData)
       })
 
-      if (response.ok) {
-        setIsEditModalOpen(false)
-        fetchPatient() // Refresh the patient data
-      } else {
+      if (!response.ok) {
         console.error('Failed to update patient')
+        return
       }
+
+      // Upload avatar if provided
+      if (avatarFile) {
+        const formData = new FormData()
+        formData.append('avatar', avatarFile)
+
+        const avatarResponse = await fetch(`http://localhost:8000/patients/${patientId}/avatar`, {
+          method: 'POST',
+          body: formData
+        })
+
+        if (!avatarResponse.ok) {
+          console.error('Failed to upload avatar')
+        }
+      }
+
+      setIsEditModalOpen(false)
+      setAvatarFile(null)
+      setAvatarPreview(null)
+      fetchPatient() // Refresh the patient data
     } catch (error) {
       console.error('Error updating patient:', error)
     }
@@ -199,7 +220,35 @@ export default function PatientDetailPage() {
         allergies: patient.metadata?.allergies || "",
         emergency_contact: patient.metadata?.emergency_contact || ""
       })
+      setAvatarFile(null)
+      setAvatarPreview(null)
       setIsEditModalOpen(true)
+    }
+  }
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file')
+        return
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image must be less than 5MB')
+        return
+      }
+
+      setAvatarFile(file)
+      
+      // Create preview
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setAvatarPreview(e.target?.result as string)
+      }
+      reader.readAsDataURL(file)
     }
   }
 
@@ -333,8 +382,18 @@ export default function PatientDetailPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
-                    <div className="bg-primary/10 rounded-full p-3">
-                      <User className="h-8 w-8 text-primary" />
+                    <div className="relative">
+                      {patient.metadata?.avatar_url ? (
+                        <img 
+                          src={patient.metadata.avatar_url} 
+                          alt={`${patient.name} avatar`}
+                          className="h-16 w-16 rounded-full object-cover border-2 border-primary/20"
+                        />
+                      ) : (
+                        <div className="bg-primary/10 rounded-full p-3 h-16 w-16 flex items-center justify-center">
+                          <User className="h-8 w-8 text-primary" />
+                        </div>
+                      )}
                     </div>
                     <div>
                       <CardTitle className="text-2xl">{patient.name}</CardTitle>
@@ -468,18 +527,12 @@ export default function PatientDetailPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <CardTitle className="text-lg truncate">{directory.name}</CardTitle>
-                              <p className="text-sm text-muted-foreground capitalize">
-                                {directory.type} directory
+                              <p className="text-sm text-muted-foreground">
+                                {patient.name} • {directory.document_count} documents
                               </p>
                             </div>
                           </div>
                         </CardHeader>
-                        <CardContent className="pt-0">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Documents</span>
-                            <span className="font-medium">{directory.document_count}</span>
-                          </div>
-                        </CardContent>
                       </Card>
                     </Link>
                   </motion.div>
@@ -497,6 +550,45 @@ export default function PatientDetailPage() {
             <DialogTitle>Edit Patient Information</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Avatar Upload Section */}
+            <div className="flex flex-col items-center space-y-4 p-4 border-2 border-dashed border-border rounded-lg">
+              <div className="relative">
+                {avatarPreview ? (
+                  <img 
+                    src={avatarPreview} 
+                    alt="Avatar preview"
+                    className="h-20 w-20 rounded-full object-cover border-2 border-primary/20"
+                  />
+                ) : patient?.metadata?.avatar_url ? (
+                  <img 
+                    src={patient.metadata.avatar_url} 
+                    alt="Current avatar"
+                    className="h-20 w-20 rounded-full object-cover border-2 border-primary/20"
+                  />
+                ) : (
+                  <div className="bg-primary/10 rounded-full p-4 h-20 w-20 flex items-center justify-center">
+                    <User className="h-8 w-8 text-primary" />
+                  </div>
+                )}
+              </div>
+              <div className="text-center">
+                <Label htmlFor="avatar" className="cursor-pointer">
+                  <div className="flex items-center space-x-2 text-sm text-muted-foreground hover:text-primary transition-colors">
+                    <Upload className="h-4 w-4" />
+                    <span>Upload Patient Photo</span>
+                  </div>
+                </Label>
+                <input
+                  id="avatar"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  className="hidden"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Max 5MB, JPG/PNG only</p>
+              </div>
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="editName">Patient Name *</Label>

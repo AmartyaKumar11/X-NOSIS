@@ -187,30 +187,41 @@ export default function DirectoryDetailPage() {
                   Back to Patient
                 </Button>
               </Link>
-              
-              <div className="flex items-center space-x-3">
-                <div className={`rounded-full p-3 ${colorClass}`}>
-                  <IconComponent className="h-6 w-6" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold">{directory.name}</h1>
-                  <p className="text-muted-foreground">
-                    {patient.name} • {documents.length} documents
-                  </p>
-                </div>
-              </div>
             </div>
-            
-            <Link href="/upload">
-              <Button className="border-2 border-black rounded-md shadow-lg hover:shadow-xl transition-all duration-300">
-                <Upload className="mr-2 h-4 w-4" />
-                Upload Documents
-              </Button>
-            </Link>
           </div>
 
-          {/* Search */}
-          <div className="mb-6">
+          {/* Directory Information Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="mb-8"
+          >
+            <Card className="bg-card text-card-foreground border-2 border-black rounded-md shadow-lg">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className={`rounded-full p-3 ${colorClass}`}>
+                      <IconComponent className="h-8 w-8" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-2xl">{directory.name}</CardTitle>
+                      <p className="text-muted-foreground">
+                        {patient.name} • {documents.length} documents
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-primary">{documents.length}</div>
+                    <div className="text-sm text-muted-foreground">Documents</div>
+                  </div>
+                </div>
+              </CardHeader>
+            </Card>
+          </motion.div>
+
+          {/* Search and Upload Section */}
+          <div className="flex items-center justify-between mb-6">
             <div className="relative max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
@@ -220,6 +231,13 @@ export default function DirectoryDetailPage() {
                 className="pl-10 border-2 border-border rounded-md shadow-sm"
               />
             </div>
+            
+            <Link href="/upload">
+              <Button className="border-2 border-black rounded-md shadow-lg hover:shadow-xl transition-all duration-300">
+                <Upload className="mr-2 h-4 w-4" />
+                Upload Documents
+              </Button>
+            </Link>
           </div>
 
           {/* Documents Grid */}

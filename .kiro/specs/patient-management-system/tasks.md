@@ -20,7 +20,9 @@
     - _Requirements: 1.1, 1.2, 5.1, 6.1, 6.2_
 
 
-  - [-] 2.2 Implement patient CRUD operations
+  - [x] 2.2 Implement patient CRUD operations
+
+
 
     - Create patient creation form with name and basic information
     - Add patient editing capabilities with validation

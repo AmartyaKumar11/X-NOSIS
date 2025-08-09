@@ -21,6 +21,7 @@ interface Patient {
   updated_at: string
   document_count: number
   last_activity?: string
+  metadata?: any
 }
 
 export default function PatientsPage() {
@@ -348,9 +349,17 @@ export default function PatientsPage() {
                     <Card className="bg-card text-card-foreground border-2 border-black rounded-md shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer h-full">
                       <CardHeader className="pb-3">
                         <div className="flex items-center space-x-3">
-                          <div className="bg-primary/10 rounded-full p-2">
-                            <User className="h-5 w-5 text-primary" />
-                          </div>
+                          {patient.metadata?.avatar_url ? (
+                            <img 
+                              src={patient.metadata.avatar_url} 
+                              alt={`${patient.name} avatar`}
+                              className="h-10 w-10 rounded-full object-cover border-2 border-primary/20"
+                            />
+                          ) : (
+                            <div className="bg-primary/10 rounded-full p-2">
+                              <User className="h-5 w-5 text-primary" />
+                            </div>
+                          )}
                           <div className="flex-1 min-w-0">
                             <CardTitle className="text-lg truncate">{patient.name}</CardTitle>
                             <div className="h-5 mt-1">

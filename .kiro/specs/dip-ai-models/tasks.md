@@ -36,6 +36,8 @@
 
 
   - [ ] 2.3 Create medical text analysis API endpoint
+
+
     - Build FastAPI endpoint for medical text analysis requests
     - Implement file upload handling for various text formats (PDF, TXT, DOC)
     - Add real-time progress tracking and status updates
