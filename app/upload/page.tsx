@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Upload, FileText, Trash2, CheckCircle } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Upload, FileText, Trash2, CheckCircle, User, Folder } from 'lucide-react'
 import { Sidebar } from "@/components/sidebar"
 import { useDropzone } from "react-dropzone"
 
@@ -18,15 +19,91 @@ interface UploadedFile {
   status: "uploading" | "completed" | "error"
 }
 
+interface Patient {
+  id: string
+  name: string
+  date_of_birth?: string
+}
+
+interface Directory {
+  id: string
+  name: string
+  type: 'default' | 'custom'
+  icon: string
+  color: string
+}
+
 export default function UploadPage() {
 
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [analyses, setAnalyses] = useState<{ [id: string]: any }>({});
   const [analysingId, setAnalysingId] = useState<string | null>(null);
-
   const [uploadedFiles, setUploadedFiles] = useState<{[key: string]: File}>({});
+  
+  // Patient management state
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [selectedPatientId, setSelectedPatientId] = useState<string>("");
+  const [directories, setDirectories] = useState<Directory[]>([]);
+  const [selectedDirectoryId, setSelectedDirectoryId] = useState<string>("");
+  const [isLoadingPatients, setIsLoadingPatients] = useState(true);
+
+  // Fetch patients on component mount
+  useEffect(() => {
+    fetchPatients();
+  }, []);
+
+  // Fetch directories when patient is selected
+  useEffect(() => {
+    if (selectedPatientId) {
+      fetchDirectories(selectedPatientId);
+    } else {
+      setDirectories([]);
+      setSelectedDirectoryId("");
+    }
+  }, [selectedPatientId]);
+
+  const fetchPatients = async () => {
+    try {
+      setIsLoadingPatients(true);
+      const response = await fetch('http://localhost:8000/patients');
+      if (response.ok) {
+        const data = await response.json();
+        setPatients(data.patients || []);
+      } else {
+        console.error('Failed to fetch patients');
+      }
+    } catch (error) {
+      console.error('Error fetching patients:', error);
+    } finally {
+      setIsLoadingPatients(false);
+    }
+  };
+
+  const fetchDirectories = async (patientId: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/patients/${patientId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setDirectories(data.patient.directories || []);
+        // Auto-select first directory if available
+        if (data.patient.directories && data.patient.directories.length > 0) {
+          setSelectedDirectoryId(data.patient.directories[0].id);
+        }
+      } else {
+        console.error('Failed to fetch directories');
+      }
+    } catch (error) {
+      console.error('Error fetching directories:', error);
+    }
+  };
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
+    // Check if patient and directory are selected
+    if (!selectedPatientId || !selectedDirectoryId) {
+      alert("Please select a patient and directory before uploading files.");
+      return;
+    }
+
     acceptedFiles.forEach((file) => {
       const id = Date.now().toString() + Math.random().toString();
       
@@ -42,7 +119,7 @@ export default function UploadPage() {
         status: "completed"
       }]);
     });
-  }, []);
+  }, [selectedPatientId, selectedDirectoryId]);
 
   const handleAnalyse = async (file: UploadedFile) => {
     setAnalysingId(file.id);
@@ -144,20 +221,92 @@ export default function UploadPage() {
         >
           <h1 className="text-3xl font-bold mb-8">Analyse Report</h1>
 
+          {/* Patient and Directory Selection */}
+          <Card className="mb-6 bg-card text-card-foreground border-2 border-black rounded-md shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <User className="h-5 w-5 mr-2" />
+                Select Patient & Directory
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Patient</label>
+                  <Select value={selectedPatientId} onValueChange={setSelectedPatientId}>
+                    <SelectTrigger className="border-2 border-border rounded-md">
+                      <SelectValue placeholder={isLoadingPatients ? "Loading patients..." : "Select a patient"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {patients.map((patient) => (
+                        <SelectItem key={patient.id} value={patient.id}>
+                          <div className="flex items-center">
+                            <User className="h-4 w-4 mr-2" />
+                            {patient.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Directory</label>
+                  <Select 
+                    value={selectedDirectoryId} 
+                    onValueChange={setSelectedDirectoryId}
+                    disabled={!selectedPatientId}
+                  >
+                    <SelectTrigger className="border-2 border-border rounded-md">
+                      <SelectValue placeholder={selectedPatientId ? "Select a directory" : "Select patient first"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {directories.map((directory) => (
+                        <SelectItem key={directory.id} value={directory.id}>
+                          <div className="flex items-center">
+                            <Folder className="h-4 w-4 mr-2" />
+                            {directory.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              {selectedPatientId && selectedDirectoryId && (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                  <p className="text-sm text-green-800">
+                    ✅ Ready to upload to <strong>{directories.find(d => d.id === selectedDirectoryId)?.name}</strong> for patient <strong>{patients.find(p => p.id === selectedPatientId)?.name}</strong>
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Upload Area */}
           <Card className="mb-8 bg-card text-card-foreground border-2 border-secondary/30">
             <CardContent className="p-8">
               <div
                 {...getRootProps()}
-                className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
-                  isDragActive 
-                    ? 'border-primary bg-primary/5' 
-                    : 'border-muted-foreground/25 hover:border-primary/50'
+                className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
+                  !selectedPatientId || !selectedDirectoryId
+                    ? 'border-muted-foreground/25 bg-muted/20 cursor-not-allowed opacity-50'
+                    : isDragActive 
+                      ? 'border-primary bg-primary/5 cursor-pointer' 
+                      : 'border-muted-foreground/25 hover:border-primary/50 cursor-pointer'
                 }`}
               >
-                <input {...getInputProps()} />
+                <input {...getInputProps()} disabled={!selectedPatientId || !selectedDirectoryId} />
                 <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                {isDragActive ? (
+                {!selectedPatientId || !selectedDirectoryId ? (
+                  <div>
+                    <p className="text-lg mb-2 text-muted-foreground">Select patient and directory first</p>
+                    <p className="text-sm text-muted-foreground">
+                      Choose a patient and directory above to enable file upload
+                    </p>
+                  </div>
+                ) : isDragActive ? (
                   <p className="text-lg text-primary">Drop the files here...</p>
                 ) : (
                   <div>
@@ -175,7 +324,14 @@ export default function UploadPage() {
           {files.length > 0 && (
             <Card className="bg-card text-card-foreground border-2 border-secondary/30">
               <CardHeader>
-                <CardTitle>Uploaded Reports ({files.length})</CardTitle>
+                <CardTitle>
+                  Uploaded Reports ({files.length})
+                  {selectedPatientId && selectedDirectoryId && (
+                    <span className="text-sm font-normal text-muted-foreground ml-2">
+                      → {patients.find(p => p.id === selectedPatientId)?.name} / {directories.find(d => d.id === selectedDirectoryId)?.name}
+                    </span>
+                  )}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">

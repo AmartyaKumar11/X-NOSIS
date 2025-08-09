@@ -163,6 +163,7 @@
     --shadow-xl: var(--shadow-xl);
     --shadow-2xl: var(--shadow-2xl);
   }
+
   .theme {
     --font-sans: Poppins, sans-serif;
     --font-mono: Fira Code, monospace;
@@ -174,6 +175,7 @@
     --tracking-wider: calc(var(--tracking-normal) + 0.05em);
     --tracking-widest: calc(var(--tracking-normal) + 0.1em);
   }
+
   body {
     letter-spacing: var(--tracking-normal);
   }
@@ -183,8 +185,15 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground font-sans;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  /* Smooth transitions for dark mode */
+  .darkmode-transition * {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease !important;
   }
 }
 
@@ -217,7 +226,22 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Force dialog overlay to be light */
+  [data-radix-dialog-overlay] {
+    background-color: rgba(0, 0, 0, 0.1) !important;
+    backdrop-filter: none !important;
+  }
+
+  /* Force dialog content to be solid white */
+  [data-radix-dialog-content] {
+    background-color: white !important;
+    color: black !important;
+    border: 2px solid black !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
   }
 }

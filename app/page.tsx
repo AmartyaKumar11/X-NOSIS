@@ -83,40 +83,40 @@ export default function LandingPage() {
           className="grid md:grid-cols-3 gap-8 mb-16"
         >
           <motion.div whileHover={{ scale: 1.04, boxShadow: "0 0 12px #e75480" }}>
-            <Card className="border-2 border-black shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-              <CardContent className="p-8 text-center">
+            <Card className="border-2 border-black shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 h-full">
+              <CardContent className="p-8 text-center h-full flex flex-col">
                 <div className="bg-primary/10 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-md">
                   <Zap className="h-8 w-8 text-primary" />
                 </div>
                 <h3 className="text-xl font-semibold mb-3">Instant Analysis</h3>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground flex-grow">
                   Get immediate insights from your medical documents and questions with AI-powered analysis.
                 </p>
               </CardContent>
             </Card>
           </motion.div>
           <motion.div whileHover={{ scale: 1.04, boxShadow: "0 0 12px #e75480" }}>
-            <Card className="border-2 border-black shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-              <CardContent className="p-8 text-center">
+            <Card className="border-2 border-black shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 h-full">
+              <CardContent className="p-8 text-center h-full flex flex-col">
                 <div className="bg-primary/10 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-md">
                   <Shield className="h-8 w-8 text-primary" />
                 </div>
                 <h3 className="text-xl font-semibold mb-3">Secure & Private</h3>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground flex-grow">
                   Your medical information is protected with enterprise-grade security and privacy measures.
                 </p>
               </CardContent>
             </Card>
           </motion.div>
           <motion.div whileHover={{ scale: 1.04, boxShadow: "0 0 12px #e75480" }}>
-            <Card className="border-2 border-black shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-              <CardContent className="p-8 text-center">
+            <Card className="border-2 border-black shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 h-full">
+              <CardContent className="p-8 text-center h-full flex flex-col">
                 <div className="bg-primary/10 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-md">
                   <Stethoscope className="h-8 w-8 text-primary" />
                 </div>
                 <h3 className="text-xl font-semibold mb-3">Medical Expertise</h3>
-                <p className="text-muted-foreground">
-                  Trained on vast medical knowledge to provide accurate, professional-grade assistance.
+                <p className="text-muted-foreground flex-grow">
+                  Trained on vast medical knowledge and clinical data to provide accurate, professional-grade medical assistance and insights.
                 </p>
               </CardContent>
             </Card>

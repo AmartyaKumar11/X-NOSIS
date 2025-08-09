@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, MessageSquare, TrendingUp, Clock, Upload, Bot } from 'lucide-react';
+import { FileText, MessageSquare, TrendingUp, Clock, Users, Bot } from 'lucide-react';
 import { Sidebar } from "@/components/sidebar";
 import Link from "next/link";
 import { auth } from "@/lib/firebase";
@@ -89,8 +89,8 @@ export default function DashboardPage() {
       <Sidebar />
       <div className="flex-1 p-6 overflow-auto">
         <div className="flex justify-end mb-4">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={handleSignOut}
             className="border-2 border-black rounded-md shadow-lg hover:shadow-xl transition-all duration-300"
           >
@@ -154,10 +154,10 @@ export default function DashboardPage() {
                         Ask AI Assistant
                       </Button>
                     </Link>
-                    <Link href="/upload">
+                    <Link href="/patients">
                       <Button className="w-full justify-start py-6 text-lg border-2 border-black rounded-md shadow-lg hover:shadow-xl transition-all duration-300" variant="outline">
-                        <Upload className="mr-2 h-4 w-4" />
-                        Analyse Report
+                        <Users className="mr-2 h-4 w-4" />
+                        Manage Patients
                       </Button>
                     </Link>
                     <Link href="/history">
@@ -207,10 +207,9 @@ export default function DashboardPage() {
               <CardContent>
                 <div className="space-y-4">
                   {recentChats.map((chat, index) => (
-                    <motion.div
+                    <div
                       key={chat.id}
-                      whileHover={{ scale: 1.03, boxShadow: "0 0 16px #e75480" }}
-                      className="flex items-start space-x-4 p-4 border-2 border-black rounded-md shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer bg-white/80"
+                      className="flex items-start space-x-4 p-4 border-2 border-black rounded-md shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer bg-card"
                     >
                       <div className="bg-primary/10 rounded-full p-2">
                         <MessageSquare className="h-4 w-4 text-primary" />
@@ -220,7 +219,7 @@ export default function DashboardPage() {
                         <p className="text-sm text-muted-foreground truncate">{chat.preview}</p>
                         <p className="text-xs text-muted-foreground mt-1">{chat.timestamp}</p>
                       </div>
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
               </CardContent>

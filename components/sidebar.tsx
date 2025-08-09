@@ -29,13 +29,14 @@ function DarkModeSwitch() {
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Home, MessageSquare, Upload, BarChart3, History, Settings, Stethoscope, Menu, X } from 'lucide-react'
+import { Home, MessageSquare, Upload, BarChart3, History, Settings, Stethoscope, Menu, Users } from 'lucide-react'
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
   { name: "Chat", href: "/chat", icon: MessageSquare },
+  { name: "Patients", href: "/patients", icon: Users },
   { name: "Analyse Report", href: "/upload", icon: Upload },
   { name: "History", href: "/history", icon: History },
   { name: "Profile", href: "/profile", icon: Stethoscope },
@@ -44,18 +45,7 @@ const navigation = [
 
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false)
-  const [trayOpen, setTrayOpen] = useState(false)
-
-  // Detect cursor at left edge for desktop tray
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (e.clientX <= 10 && !trayOpen) {
-        setTrayOpen(true)
-      }
-    }
-    window.addEventListener('mousemove', handleMouseMove)
-    return () => window.removeEventListener('mousemove', handleMouseMove)
-  }, [trayOpen])
+  const { theme } = useTheme()
   const pathname = usePathname()
 
   const SidebarContent = () => (
@@ -110,8 +100,10 @@ export function Sidebar() {
           </p>
         </Card>
         {/* Dark Mode Switch */}
-        <div className="mt-6 flex items-center space-x-2">
-          <DarkModeSwitch />
+        <div className="mt-6 p-3 border-2 border-sidebar-border rounded-xl bg-sidebar-accent/20">
+          <div className="flex items-center justify-center">
+            <DarkModeSwitch />
+          </div>
         </div>
       </div>
     </div>
@@ -119,46 +111,37 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile Menu Button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="fixed top-4 left-4 z-50 md:hidden shadow-lg"
-        onClick={() => setIsOpen(!isOpen)}
+      {/* Menu Button - Always visible */}
+      <motion.div
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
+        animate={{ 
+          y: [0, -5, 0],
+          transition: { 
+            duration: 2,
+            repeat: Infinity,
+            repeatType: "reverse",
+            ease: "easeInOut"
+          }
+        }}
       >
-        {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-      </Button>
-
-      {/* Desktop Sidebar Tray */}
-      <div className="hidden md:block">
-        <motion.div
-          initial={{ x: -300 }}
-          animate={{ x: trayOpen ? 0 : -300 }}
-          transition={{ type: "spring", stiffness: 400, damping: 20 }}
-          className="fixed top-0 left-0 h-screen w-64 z-50 border-r border-sidebar-border shadow-2xl bg-white"
-          onMouseLeave={() => setTrayOpen(false)}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="fixed top-4 left-4 z-50 shadow-lg border-2 border-black rounded-md hover:shadow-xl transition-all duration-300"
+          onClick={() => setIsOpen(!isOpen)}
         >
-          <SidebarContent />
-        </motion.div>
-        {/* Shadow overlay when tray is open */}
-        {trayOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.3 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 ml-64 bg-black z-40"
-            onClick={() => setTrayOpen(false)}
-          />
-        )}
-      </div>
+          <Menu className="h-6 w-6" />
+        </Button>
+      </motion.div>
 
-      {/* Mobile Sidebar */}
+      {/* Sidebar Overlay */}
       {isOpen && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-40 md:hidden"
+          className="fixed inset-0 z-40"
         >
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
           <motion.div

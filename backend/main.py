@@ -59,7 +59,7 @@ models = {
 
 # Database setup
 def init_database():
-    """Initialize SQLite database for storing analysis results"""
+    """Initialize SQLite database for storing analysis results and patient management"""
     conn = sqlite3.connect('dip_analysis.db')
     cursor = conn.cursor()
     
@@ -88,6 +88,56 @@ def init_database():
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    
+    # Create patients table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS patients (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            date_of_birth DATE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            metadata TEXT
+        )
+    ''')
+    
+    # Create directories table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS directories (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            type TEXT CHECK(type IN ('default', 'custom')) DEFAULT 'custom',
+            parent_id TEXT REFERENCES directories(id) ON DELETE CASCADE,
+            patient_id TEXT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+            icon TEXT,
+            color TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            sort_order INTEGER DEFAULT 0
+        )
+    ''')
+    
+    # Create patient documents table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS patient_documents (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            file_type TEXT NOT NULL,
+            file_size INTEGER NOT NULL,
+            file_path TEXT NOT NULL,
+            directory_id TEXT NOT NULL REFERENCES directories(id) ON DELETE CASCADE,
+            patient_id TEXT NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+            analysis_id INTEGER REFERENCES analysis_results(id),
+            uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            tags TEXT
+        )
+    ''')
+    
+    # Create indexes for better performance
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_patients_name ON patients(name)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_directories_patient ON directories(patient_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_directories_parent ON directories(parent_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_patient_documents_patient ON patient_documents(patient_id)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_patient_documents_directory ON patient_documents(directory_id)')
     
     conn.commit()
     conn.close()
@@ -605,3 +655,317 @@ async def get_analysis_result(analysis_id: int):
 async def analyze_report_legacy(file: UploadFile = File(...)):
     """Legacy analyze endpoint - redirects to text analysis"""
     return await analyze_medical_text(file)
+
+# Patient Management API Endpoints
+
+@app.post("/patients")
+async def create_patient(patient_data: dict):
+    """Create a new patient"""
+    try:
+        import uuid
+        patient_id = str(uuid.uuid4())
+        
+        conn = sqlite3.connect('dip_analysis.db')
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO patients (id, name, date_of_birth, metadata)
+            VALUES (?, ?, ?, ?)
+        ''', (
+            patient_id,
+            patient_data.get('name'),
+            patient_data.get('date_of_birth'),
+            json.dumps(patient_data.get('metadata', {}))
+        ))
+        
+        # Create default directories for the patient
+        default_directories = [
+            {"name": "Imaging", "icon": "Camera", "color": "blue"},
+            {"name": "Lab Reports", "icon": "TestTube", "color": "green"},
+            {"name": "Follow-ups", "icon": "Calendar", "color": "orange"},
+            {"name": "Clinical Notes", "icon": "FileText", "color": "purple"}
+        ]
+        
+        for i, dir_data in enumerate(default_directories):
+            dir_id = str(uuid.uuid4())
+            cursor.execute('''
+                INSERT INTO directories (id, name, type, patient_id, icon, color, sort_order)
+                VALUES (?, ?, 'default', ?, ?, ?, ?)
+            ''', (dir_id, dir_data["name"], patient_id, dir_data["icon"], dir_data["color"], i))
+        
+        conn.commit()
+        conn.close()
+        
+        return {
+            "success": True,
+            "patient_id": patient_id,
+            "message": "Patient created successfully",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logging.error(f"Error creating patient: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create patient: {str(e)}")
+
+@app.get("/patients")
+async def get_patients():
+    """Get all patients with basic statistics"""
+    try:
+        conn = sqlite3.connect('dip_analysis.db')
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT 
+                p.id, p.name, p.date_of_birth, p.created_at, p.updated_at,
+                COUNT(pd.id) as document_count,
+                MAX(pd.uploaded_at) as last_activity
+            FROM patients p
+            LEFT JOIN patient_documents pd ON p.id = pd.patient_id
+            GROUP BY p.id, p.name, p.date_of_birth, p.created_at, p.updated_at
+            ORDER BY p.updated_at DESC
+        ''')
+        
+        patients = []
+        for row in cursor.fetchall():
+            patients.append({
+                "id": row[0],
+                "name": row[1],
+                "date_of_birth": row[2],
+                "created_at": row[3],
+                "updated_at": row[4],
+                "document_count": row[5] or 0,
+                "last_activity": row[6]
+            })
+        
+        conn.close()
+        
+        return {
+            "success": True,
+            "patients": patients,
+            "total": len(patients),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logging.error(f"Error fetching patients: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch patients: {str(e)}")
+
+@app.get("/patients/{patient_id}")
+async def get_patient(patient_id: str):
+    """Get patient details with directory structure"""
+    try:
+        conn = sqlite3.connect('dip_analysis.db')
+        cursor = conn.cursor()
+        
+        # Get patient info
+        cursor.execute('SELECT * FROM patients WHERE id = ?', (patient_id,))
+        patient_row = cursor.fetchone()
+        
+        if not patient_row:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Get directories
+        cursor.execute('''
+            SELECT id, name, type, parent_id, icon, color, sort_order,
+                   (SELECT COUNT(*) FROM patient_documents WHERE directory_id = d.id) as document_count
+            FROM directories d
+            WHERE patient_id = ?
+            ORDER BY sort_order, name
+        ''', (patient_id,))
+        
+        directories = []
+        for row in cursor.fetchall():
+            directories.append({
+                "id": row[0],
+                "name": row[1],
+                "type": row[2],
+                "parent_id": row[3],
+                "icon": row[4],
+                "color": row[5],
+                "sort_order": row[6],
+                "document_count": row[7]
+            })
+        
+        conn.close()
+        
+        patient = {
+            "id": patient_row[0],
+            "name": patient_row[1],
+            "date_of_birth": patient_row[2],
+            "created_at": patient_row[3],
+            "updated_at": patient_row[4],
+            "metadata": json.loads(patient_row[5]) if patient_row[5] else {},
+            "directories": directories
+        }
+        
+        return {
+            "success": True,
+            "patient": patient,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error fetching patient {patient_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch patient: {str(e)}")
+
+@app.put("/patients/{patient_id}")
+async def update_patient(patient_id: str, patient_data: dict):
+    """Update patient information"""
+    try:
+        conn = sqlite3.connect('dip_analysis.db')
+        cursor = conn.cursor()
+        
+        # Check if patient exists
+        cursor.execute('SELECT id FROM patients WHERE id = ?', (patient_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Update patient
+        cursor.execute('''
+            UPDATE patients 
+            SET name = ?, date_of_birth = ?, metadata = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (
+            patient_data.get('name'),
+            patient_data.get('date_of_birth'),
+            json.dumps(patient_data.get('metadata', {})),
+            patient_id
+        ))
+        
+        conn.commit()
+        conn.close()
+        
+        return {
+            "success": True,
+            "message": "Patient updated successfully",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating patient {patient_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update patient: {str(e)}")
+
+@app.delete("/patients/{patient_id}")
+async def delete_patient(patient_id: str):
+    """Delete patient and all associated data"""
+    try:
+        conn = sqlite3.connect('dip_analysis.db')
+        cursor = conn.cursor()
+        
+        # Check if patient exists
+        cursor.execute('SELECT id FROM patients WHERE id = ?', (patient_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Delete patient (cascade will handle directories and documents)
+        cursor.execute('DELETE FROM patients WHERE id = ?', (patient_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return {
+            "success": True,
+            "message": "Patient deleted successfully",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error deleting patient {patient_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete patient: {str(e)}")
+
+@app.post("/patients/{patient_id}/directories")
+async def create_directory(patient_id: str, directory_data: dict):
+    """Create a new directory for a patient"""
+    try:
+        import uuid
+        directory_id = str(uuid.uuid4())
+        
+        conn = sqlite3.connect('dip_analysis.db')
+        cursor = conn.cursor()
+        
+        # Verify patient exists
+        cursor.execute('SELECT id FROM patients WHERE id = ?', (patient_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        cursor.execute('''
+            INSERT INTO directories (id, name, type, parent_id, patient_id, icon, color, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            directory_id,
+            directory_data.get('name'),
+            directory_data.get('type', 'custom'),
+            directory_data.get('parent_id'),
+            patient_id,
+            directory_data.get('icon'),
+            directory_data.get('color'),
+            directory_data.get('sort_order', 0)
+        ))
+        
+        conn.commit()
+        conn.close()
+        
+        return {
+            "success": True,
+            "directory_id": directory_id,
+            "message": "Directory created successfully",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error creating directory: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create directory: {str(e)}")
+
+@app.get("/patients/{patient_id}/directories/{directory_id}/documents")
+async def get_directory_documents(patient_id: str, directory_id: str):
+    """Get documents in a specific directory"""
+    try:
+        conn = sqlite3.connect('dip_analysis.db')
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT pd.*, ar.confidence_score, ar.results
+            FROM patient_documents pd
+            LEFT JOIN analysis_results ar ON pd.analysis_id = ar.id
+            WHERE pd.patient_id = ? AND pd.directory_id = ?
+            ORDER BY pd.uploaded_at DESC
+        ''', (patient_id, directory_id))
+        
+        documents = []
+        for row in cursor.fetchall():
+            documents.append({
+                "id": row[0],
+                "name": row[1],
+                "file_type": row[2],
+                "file_size": row[3],
+                "file_path": row[4],
+                "directory_id": row[5],
+                "patient_id": row[6],
+                "analysis_id": row[7],
+                "uploaded_at": row[8],
+                "tags": json.loads(row[9]) if row[9] else [],
+                "analysis_status": "completed" if row[7] else "pending",
+                "confidence_score": row[10] if row[10] else None,
+                "analysis_results": json.loads(row[11]) if row[11] else None
+            })
+        
+        conn.close()
+        
+        return {
+            "success": True,
+            "documents": documents,
+            "total": len(documents),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logging.error(f"Error fetching directory documents: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch documents: {str(e)}")
