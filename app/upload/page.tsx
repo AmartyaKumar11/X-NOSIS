@@ -8,7 +8,9 @@ import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Upload, FileText, Trash2, CheckCircle, User, Folder } from 'lucide-react'
 import { Sidebar } from "@/components/sidebar"
+import { VoiceControl } from "@/components/voice-control"
 import { useDropzone } from "react-dropzone"
+import { useRouter } from "next/navigation"
 
 interface UploadedFile {
   id: string
@@ -34,7 +36,7 @@ interface Directory {
 }
 
 export default function UploadPage() {
-
+  const router = useRouter()
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [analyses, setAnalyses] = useState<{ [id: string]: any }>({});
   const [analysingId, setAnalysingId] = useState<string | null>(null);
@@ -172,6 +174,36 @@ export default function UploadPage() {
     }
     setAnalysingId(null);
   };
+
+  // Voice control handlers
+  const handleVoiceUploadDocument = (patientName: string, directoryName: string) => {
+    // Find patient by name
+    const patient = patients.find(p => p.name.toLowerCase().includes(patientName.toLowerCase()))
+    if (patient) {
+      setSelectedPatientId(patient.id)
+      
+      // Find directory by name
+      const directory = directories.find(d => d.name.toLowerCase().includes(directoryName.toLowerCase()))
+      if (directory) {
+        setSelectedDirectoryId(directory.id)
+        
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance(`Ready to upload document for ${patient.name} to ${directory.name} directory`)
+          speechSynthesis.speak(utterance)
+        }
+      } else {
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance(`Directory ${directoryName} not found for patient ${patient.name}`)
+          speechSynthesis.speak(utterance)
+        }
+      }
+    } else {
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(`Patient ${patientName} not found`)
+        speechSynthesis.speak(utterance)
+      }
+    }
+  }
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -492,6 +524,12 @@ export default function UploadPage() {
           )}
         </motion.div>
       </div>
+
+      {/* Voice Control */}
+      <VoiceControl
+        onNavigate={(path) => router.push(path)}
+        onUploadDocument={handleVoiceUploadDocument}
+      />
     </div>
   );
 }

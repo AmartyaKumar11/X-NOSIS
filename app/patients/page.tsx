@@ -9,7 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label"
 import { Plus, Search, User, Calendar, FileText, Clock } from 'lucide-react'
 import { Sidebar } from "@/components/sidebar"
+import { VoiceControl } from "@/components/voice-control"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 interface Patient {
   id: string
@@ -22,6 +24,7 @@ interface Patient {
 }
 
 export default function PatientsPage() {
+  const router = useRouter()
   const [patients, setPatients] = useState<Patient[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -36,6 +39,16 @@ export default function PatientsPage() {
   // Fetch patients on component mount
   useEffect(() => {
     fetchPatients()
+  }, [])
+
+  // Refresh patients when page comes back into focus (e.g., after navigation)
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchPatients()
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
   }, [])
 
   const fetchPatients = async () => {
@@ -105,6 +118,90 @@ export default function PatientsPage() {
     const diffInDays = Math.floor(diffInHours / 24)
     if (diffInDays < 7) return `${diffInDays}d ago`
     return formatDate(dateString)
+  }
+
+  // Voice control handlers
+  const handleVoiceCreatePatient = async (data: any) => {
+    console.log('🎤 handleVoiceCreatePatient called with:', data)
+    
+    // Ensure the data structure matches what manual creation sends
+    const patientData = {
+      name: data.name,
+      date_of_birth: data.date_of_birth || null,
+      metadata: {
+        phone: data.metadata?.phone || '',
+        email: data.metadata?.email || '',
+        gender: data.metadata?.gender || '',
+        blood_type: data.metadata?.blood_type || '',
+        allergies: data.metadata?.allergies || '',
+        emergency_contact: data.metadata?.emergency_contact || ''
+      }
+    }
+    
+    console.log('📡 Sending standardized patient data:', patientData)
+    
+    try {
+      const response = await fetch('http://localhost:8000/patients', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(patientData)
+      })
+
+      console.log('📡 Response status:', response.status)
+      
+      if (response.ok) {
+        const result = await response.json()
+        console.log('✅ Patient created successfully!', result)
+        fetchPatients() // Refresh the list
+        // Provide voice feedback
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance(`Patient ${patientData.name} created successfully`)
+          speechSynthesis.speak(utterance)
+        }
+      } else {
+        console.error('❌ Failed to create patient via voice, status:', response.status)
+        const errorText = await response.text()
+        console.error('Error details:', errorText)
+      }
+    } catch (error) {
+      console.error('❌ Error creating patient via voice:', error)
+    }
+  }
+
+  const handleVoiceSearch = (query: string) => {
+    setSearchQuery(query)
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(`Searching for ${query}`)
+      speechSynthesis.speak(utterance)
+    }
+  }
+
+  const handleVoiceNavigate = (path: string) => {
+    router.push(path)
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(`Navigating to ${path.replace('/', '')}`)
+      speechSynthesis.speak(utterance)
+    }
+  }
+
+  const handleVoiceDeletePatient = (patientName: string) => {
+    // Find patient by name
+    const patient = patients.find(p => p.name.toLowerCase().includes(patientName.toLowerCase()))
+    if (patient) {
+      // Navigate to patient detail page where deletion can be confirmed
+      router.push(`/patients/${patient.id}`)
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(`Opening ${patient.name} for deletion`)
+        speechSynthesis.speak(utterance)
+      }
+    } else {
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(`Patient ${patientName} not found`)
+        speechSynthesis.speak(utterance)
+      }
+    }
   }
 
   return (
@@ -248,7 +345,7 @@ export default function PatientsPage() {
                   transition={{ duration: 0.3, delay: index * 0.1 }}
                 >
                   <Link href={`/patients/${patient.id}`}>
-                    <Card className="bg-card text-card-foreground border-2 border-black rounded-md shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer">
+                    <Card className="bg-card text-card-foreground border-2 border-black rounded-md shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer h-full">
                       <CardHeader className="pb-3">
                         <div className="flex items-center space-x-3">
                           <div className="bg-primary/10 rounded-full p-2">
@@ -256,12 +353,19 @@ export default function PatientsPage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <CardTitle className="text-lg truncate">{patient.name}</CardTitle>
-                            {patient.date_of_birth && (
-                              <p className="text-sm text-muted-foreground flex items-center mt-1">
-                                <Calendar className="h-3 w-3 mr-1" />
-                                {formatDate(patient.date_of_birth)}
-                              </p>
-                            )}
+                            <div className="h-5 mt-1">
+                              {patient.date_of_birth ? (
+                                <p className="text-sm text-muted-foreground flex items-center">
+                                  <Calendar className="h-3 w-3 mr-1" />
+                                  {formatDate(patient.date_of_birth)}
+                                </p>
+                              ) : (
+                                <p className="text-sm text-muted-foreground flex items-center">
+                                  <Calendar className="h-3 w-3 mr-1" />
+                                  Date not provided
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </CardHeader>
@@ -291,6 +395,14 @@ export default function PatientsPage() {
           )}
         </motion.div>
       </div>
+
+      {/* Voice Control */}
+      <VoiceControl
+        onCreatePatient={handleVoiceCreatePatient}
+        onSearch={handleVoiceSearch}
+        onNavigate={handleVoiceNavigate}
+        onDeletePatient={handleVoiceDeletePatient}
+      />
     </div>
   )
 }

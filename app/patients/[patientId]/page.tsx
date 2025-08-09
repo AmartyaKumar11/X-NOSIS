@@ -7,11 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { CustomDialog, CustomDialogContent, CustomDialogHeader, CustomDialogTitle, CustomDialogClose } from "@/components/ui/custom-dialog"
+import { VoiceControl } from "@/components/voice-control"
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Plus, Search, FolderPlus, Camera, TestTube, Calendar, FileText, Folder, User, Edit, Trash2 } from 'lucide-react'
 import { Sidebar } from "@/components/sidebar"
 import Link from "next/link"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 
 interface Patient {
   id: string
@@ -53,6 +54,7 @@ const colorMap: { [key: string]: string } = {
 
 export default function PatientDetailPage() {
   const params = useParams()
+  const router = useRouter()
   const patientId = params.patientId as string
   
   const [patient, setPatient] = useState<Patient | null>(null)
@@ -170,8 +172,13 @@ export default function PatientDetailPage() {
       })
 
       if (response.ok) {
-        // Redirect to patients list after successful deletion
-        window.location.href = '/patients'
+        // Close the modal first
+        setIsDeleteModalOpen(false)
+        
+        // Use Next.js router to navigate back to patients page
+        // This will trigger a proper page refresh and reload the patients list
+        router.push('/patients')
+        router.refresh() // Force a refresh of the page data
       } else {
         console.error('Failed to delete patient')
       }
@@ -631,6 +638,12 @@ export default function PatientDetailPage() {
           </div>
         </CustomDialogContent>
       </CustomDialog>
+
+      {/* Voice Control */}
+      <VoiceControl
+        onNavigate={(path) => router.push(path)}
+        onSearch={(query) => setSearchQuery(query)}
+      />
     </div>
   )
 }

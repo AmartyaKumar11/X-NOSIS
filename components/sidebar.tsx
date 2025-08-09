@@ -65,26 +65,20 @@ export function Sidebar() {
             const isActive = pathname === item.href
             return (
               <Link key={item.name} href={item.href}>
-                <motion.div
-                  whileHover={{ boxShadow: "0 0 8px 2px #e75480" }}
-                  transition={{ type: "spring", stiffness: 300 }}
-                  className="rounded-lg"
+                <Button
+                  variant={isActive ? "default" : "outline"}
+                  className={`w-full flex items-center justify-start border-2 border-black rounded-md shadow-lg hover:shadow-xl transition-all duration-300 ${
+                    isActive 
+                      ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md" 
+                      : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  }`}
+                  onClick={() => setIsOpen(false)}
                 >
-                  <Button
-                    variant={isActive ? "default" : "outline"}
-                    className={`w-full flex items-center justify-start border-2 border-black rounded-md shadow-lg hover:shadow-xl transition-all duration-300 ${
-                      isActive 
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md" 
-                        : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    }`}
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <span className="mr-3">
-                      <item.icon className="h-5 w-5 text-sidebar-primary" />
-                    </span>
-                    {item.name}
-                  </Button>
-                </motion.div>
+                  <span className="mr-3">
+                    <item.icon className="h-5 w-5 text-sidebar-primary" />
+                  </span>
+                  {item.name}
+                </Button>
               </Link>
             )
           })}
@@ -112,28 +106,14 @@ export function Sidebar() {
   return (
     <>
       {/* Menu Button - Always visible */}
-      <motion.div
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.95 }}
-        animate={{ 
-          y: [0, -5, 0],
-          transition: { 
-            duration: 2,
-            repeat: Infinity,
-            repeatType: "reverse",
-            ease: "easeInOut"
-          }
-        }}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="fixed top-4 left-4 z-50 shadow-lg border-2 border-black rounded-md hover:shadow-xl transition-all duration-300"
+        onClick={() => setIsOpen(!isOpen)}
       >
-        <Button
-          variant="ghost"
-          size="icon"
-          className="fixed top-4 left-4 z-50 shadow-lg border-2 border-black rounded-md hover:shadow-xl transition-all duration-300"
-          onClick={() => setIsOpen(!isOpen)}
-        >
-          <Menu className="h-6 w-6" />
-        </Button>
-      </motion.div>
+        <Menu className="h-6 w-6" />
+      </Button>
 
       {/* Sidebar Overlay */}
       {isOpen && (
