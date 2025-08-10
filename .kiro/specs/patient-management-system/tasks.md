@@ -24,6 +24,10 @@
 
 
 
+
+
+
+
     - Create patient creation form with name and basic information
     - Add patient editing capabilities with validation
     - Implement patient deletion with confirmation dialog
@@ -31,10 +35,13 @@
     - _Requirements: 1.1, 1.2, 1.3_
 
 
+
 - [ ] 3. Build hierarchical directory structure system
   - [ ] 3.1 Create default directory initialization
     - Automatically create default directories (Imaging, Lab Reports, Follow-ups, Clinical Notes) for new patients
     - Assign appropriate icons and colors to default directories
+
+
 
     - Set up directory hierarchy with parent-child relationships
     - _Requirements: 2.1, 2.2_

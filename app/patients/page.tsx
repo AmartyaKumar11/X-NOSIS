@@ -30,6 +30,7 @@ export default function PatientsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [isCreating, setIsCreating] = useState(false)
   const [newPatient, setNewPatient] = useState({
     name: "",
     date_of_birth: "",
@@ -71,12 +72,20 @@ export default function PatientsPage() {
 
   const createPatient = async () => {
     try {
+      // Validate required fields
+      if (!newPatient.name.trim()) {
+        alert('Patient name is required')
+        return
+      }
+
+      setIsCreating(true)
+
       const patientData = {
-        name: newPatient.name,
+        name: newPatient.name.trim(),
         date_of_birth: newPatient.date_of_birth || null,
         metadata: {
-          phone: newPatient.phone,
-          email: newPatient.email
+          phone: newPatient.phone.trim(),
+          email: newPatient.email.trim()
         }
       }
 
@@ -89,14 +98,26 @@ export default function PatientsPage() {
       })
 
       if (response.ok) {
+        const result = await response.json()
         setIsCreateModalOpen(false)
         setNewPatient({ name: "", date_of_birth: "", phone: "", email: "" })
         fetchPatients() // Refresh the list
+        
+        // Show success feedback
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance(`Patient ${patientData.name} created successfully`)
+          speechSynthesis.speak(utterance)
+        }
       } else {
-        console.error('Failed to create patient')
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
+        console.error('Failed to create patient:', errorData)
+        alert(`Failed to create patient: ${errorData.detail || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Error creating patient:', error)
+      alert('Network error: Unable to create patient. Please check your connection.')
+    } finally {
+      setIsCreating(false)
     }
   }
 
@@ -242,8 +263,14 @@ export default function PatientsPage() {
                       value={newPatient.name}
                       onChange={(e) => setNewPatient({...newPatient, name: e.target.value})}
                       placeholder="Enter patient name"
+                      maxLength={100}
                       className="border-2 border-border rounded-md"
                     />
+                    {newPatient.name.length > 90 && (
+                      <p className="text-sm text-orange-600 mt-1">
+                        {100 - newPatient.name.length} characters remaining
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="dob">Date of Birth</Label>
@@ -282,10 +309,17 @@ export default function PatientsPage() {
                     </Button>
                     <Button 
                       onClick={createPatient}
-                      disabled={!newPatient.name.trim()}
+                      disabled={!newPatient.name.trim() || newPatient.name.length > 100 || isCreating}
                       className="border-2 border-black rounded-md shadow-lg hover:shadow-xl transition-all duration-300"
                     >
-                      Create Patient
+                      {isCreating ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Creating...
+                        </>
+                      ) : (
+                        'Create Patient'
+                      )}
                     </Button>
                   </div>
                 </div>

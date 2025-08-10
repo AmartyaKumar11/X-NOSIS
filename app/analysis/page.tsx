@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress"
 import { Upload, FileText, Brain, Stethoscope, Pill, Activity, AlertTriangle, CheckCircle, Clock, Zap } from 'lucide-react'
 import { Sidebar } from "@/components/sidebar"
 import { VoiceControl } from "@/components/voice-control"
+import { MedicalAnalysisResults } from "@/components/medical-analysis-results"
 import { useDropzone } from "react-dropzone"
 import { useRouter } from "next/navigation"
 
@@ -25,13 +26,36 @@ interface AnalysisResult {
       start_pos: number
       end_pos: number
     }>
-    entity_summary: {
-      total_entities: number
+    categorized_entities: {
+      symptoms: Array<any>
+      conditions: Array<any>
+      medications: Array<any>
+      vital_signs: Array<any>
+      lab_values: Array<any>
+      anatomy: Array<any>
+      procedures: Array<any>
+      allergies: Array<any>
+      family_history: Array<any>
+      social_history: Array<any>
+    }
+    entity_counts: {
       symptoms: number
       conditions: number
       medications: number
-      other: number
+      vital_signs: number
+      lab_values: number
+      procedures: number
+      allergies: number
+      family_history: number
+      social_history: number
+      total_entities: number
     }
+    critical_findings: Array<{
+      text: string
+      category: string
+      severity: string
+      reason: string
+    }>
     differential_diagnosis: Array<{
       condition: string
       confidence: number
@@ -40,6 +64,12 @@ interface AnalysisResult {
     summary: string
     confidence_score: number
     processing_time: number
+    processing_metadata: {
+      text_length: number
+      entities_found: number
+      categories_detected: number
+      has_critical_findings: boolean
+    }
   }
   error?: string
 }
@@ -50,12 +80,15 @@ export default function AnalysisPage() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [uploadedFileName, setUploadedFileName] = useState<string>("")
   const [analysisProgress, setAnalysisProgress] = useState(0)
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0]
     if (file) {
       setUploadedFile(file)
+      setUploadedFileName(file.name)
+      setAnalysisResult(null) // Clear previous results
       // Read file content for text files
       if (file.type.startsWith('text/')) {
         const reader = new FileReader()
@@ -112,6 +145,7 @@ export default function AnalysisPage() {
         })
       } else {
         // Direct text analysis
+        setUploadedFileName("Direct Text Input")
         response = await fetch("http://localhost:8000/analyze/text-direct", {
           method: "POST",
           headers: {
@@ -348,106 +382,12 @@ Patient presents with chest pain, shortness of breath, and fatigue. History of h
                       <span>Analysis Results</span>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-6">
+                  <CardContent>
                     {analysisResult.success && analysisResult.results ? (
-                      <>
-                        {/* Summary */}
-                        <div>
-                          <h4 className="font-semibold text-sm mb-2 flex items-center">
-                            <FileText className="h-4 w-4 mr-1" />
-                            Medical Summary
-                          </h4>
-                          <p className="text-sm bg-blue-50 p-3 rounded border-l-4 border-blue-400">
-                            {analysisResult.results.summary}
-                          </p>
-                        </div>
-
-                        {/* Entity Summary */}
-                        {analysisResult.results.entity_summary && (
-                          <div>
-                            <h4 className="font-semibold text-sm mb-2">📊 Entity Summary</h4>
-                            <div className="grid grid-cols-2 gap-2 text-xs">
-                              <div className="bg-red-50 p-2 rounded">
-                                <span className="font-medium">Symptoms:</span> {analysisResult.results.entity_summary.symptoms || 0}
-                              </div>
-                              <div className="bg-orange-50 p-2 rounded">
-                                <span className="font-medium">Conditions:</span> {analysisResult.results.entity_summary.conditions || 0}
-                              </div>
-                              <div className="bg-green-50 p-2 rounded">
-                                <span className="font-medium">Medications:</span> {analysisResult.results.entity_summary.medications || 0}
-                              </div>
-                              <div className="bg-purple-50 p-2 rounded">
-                                <span className="font-medium">Total:</span> {analysisResult.results.entity_summary.total_entities || 0}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Medical Entities */}
-                        {analysisResult.results.medical_entities && analysisResult.results.medical_entities.length > 0 && (
-                          <div>
-                            <h4 className="font-semibold text-sm mb-2">🏷️ Medical Entities</h4>
-                            <div className="space-y-1 max-h-48 overflow-y-auto">
-                              {analysisResult.results.medical_entities.map((entity, idx) => (
-                                <div key={idx} className="flex justify-between items-center text-xs bg-gray-50 p-2 rounded">
-                                  <span className="font-medium">{entity.text}</span>
-                                  <div className="flex gap-2">
-                                    <span className={`px-2 py-1 rounded text-xs ${
-                                      entity.label === 'SYMPTOM' ? 'bg-red-100 text-red-800' :
-                                      entity.label === 'CONDITION' ? 'bg-orange-100 text-orange-800' :
-                                      entity.label === 'MEDICATION' ? 'bg-green-100 text-green-800' :
-                                      'bg-blue-100 text-blue-800'
-                                    }`}>
-                                      {entity.label}
-                                    </span>
-                                    <span className="text-gray-600">{(entity.confidence * 100).toFixed(0)}%</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Differential Diagnosis */}
-                        {analysisResult.results.differential_diagnosis && analysisResult.results.differential_diagnosis.length > 0 && (
-                          <div>
-                            <h4 className="font-semibold text-sm mb-2">🩺 Differential Diagnosis</h4>
-                            <div className="space-y-2">
-                              {analysisResult.results.differential_diagnosis.map((dx, idx) => (
-                                <div key={idx} className="bg-yellow-50 p-3 rounded border-l-4 border-yellow-400">
-                                  <div className="flex justify-between items-start">
-                                    <span className="font-medium text-sm">{dx.condition}</span>
-                                    <span className="text-xs bg-yellow-200 px-2 py-1 rounded">
-                                      {(dx.confidence * 100).toFixed(0)}%
-                                    </span>
-                                  </div>
-                                  <p className="text-xs text-gray-600 mt-1">{dx.reasoning}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Analysis Metadata */}
-                        <div className="text-xs text-gray-500 border-t pt-3">
-                          <div className="grid grid-cols-3 gap-4">
-                            <div>
-                              <span className="font-medium">Confidence:</span><br />
-                              {((analysisResult.results.confidence_score || 0) * 100).toFixed(0)}%
-                            </div>
-                            <div>
-                              <span className="font-medium">Processing Time:</span><br />
-                              {(analysisResult.results.processing_time || 0).toFixed(2)}s
-                            </div>
-                            {analysisResult.analysis_id && (
-                              <div>
-                                <span className="font-medium">Analysis ID:</span><br />
-                                #{analysisResult.analysis_id}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </>
+                      <MedicalAnalysisResults 
+                        results={analysisResult.results} 
+                        fileName={uploadedFileName}
+                      />
                     ) : (
                       <div className="text-center py-8">
                         <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />

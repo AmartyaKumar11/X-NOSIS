@@ -63,6 +63,8 @@ export default function PatientDetailPage() {
   const [isCreateDirModalOpen, setIsCreateDirModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [newDirectory, setNewDirectory] = useState({
     name: "",
     icon: "Folder",
@@ -135,17 +137,25 @@ export default function PatientDetailPage() {
 
   const updatePatient = async () => {
     try {
+      // Validate required fields
+      if (!editPatient.name.trim()) {
+        alert('Patient name is required')
+        return
+      }
+
+      setIsUpdating(true)
+
       // First update patient data
       const patientData = {
-        name: editPatient.name,
+        name: editPatient.name.trim(),
         date_of_birth: editPatient.date_of_birth || null,
         metadata: {
-          phone: editPatient.phone,
-          email: editPatient.email,
+          phone: editPatient.phone.trim(),
+          email: editPatient.email.trim(),
           gender: editPatient.gender,
           blood_type: editPatient.blood_type,
-          allergies: editPatient.allergies,
-          emergency_contact: editPatient.emergency_contact
+          allergies: editPatient.allergies.trim(),
+          emergency_contact: editPatient.emergency_contact.trim()
         }
       }
 
@@ -158,7 +168,9 @@ export default function PatientDetailPage() {
       })
 
       if (!response.ok) {
-        console.error('Failed to update patient')
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
+        console.error('Failed to update patient:', errorData)
+        alert(`Failed to update patient: ${errorData.detail || 'Unknown error'}`)
         return
       }
 
@@ -173,7 +185,9 @@ export default function PatientDetailPage() {
         })
 
         if (!avatarResponse.ok) {
-          console.error('Failed to upload avatar')
+          const errorData = await avatarResponse.json().catch(() => ({ detail: 'Avatar upload failed' }))
+          console.error('Failed to upload avatar:', errorData)
+          alert(`Avatar upload failed: ${errorData.detail || 'Unknown error'}`)
         }
       }
 
@@ -181,18 +195,35 @@ export default function PatientDetailPage() {
       setAvatarFile(null)
       setAvatarPreview(null)
       fetchPatient() // Refresh the patient data
+      
+      // Show success feedback
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(`Patient ${patientData.name} updated successfully`)
+        speechSynthesis.speak(utterance)
+      }
     } catch (error) {
       console.error('Error updating patient:', error)
+      alert('Network error: Unable to update patient. Please check your connection.')
+    } finally {
+      setIsUpdating(false)
     }
   }
 
   const deletePatient = async () => {
     try {
+      setIsDeleting(true)
+      
       const response = await fetch(`http://localhost:8000/patients/${patientId}`, {
         method: 'DELETE'
       })
 
       if (response.ok) {
+        // Show success feedback
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance(`Patient ${patient?.name} deleted successfully`)
+          speechSynthesis.speak(utterance)
+        }
+        
         // Close the modal first
         setIsDeleteModalOpen(false)
         
@@ -201,10 +232,15 @@ export default function PatientDetailPage() {
         router.push('/patients')
         router.refresh() // Force a refresh of the page data
       } else {
-        console.error('Failed to delete patient')
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
+        console.error('Failed to delete patient:', errorData)
+        alert(`Failed to delete patient: ${errorData.detail || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Error deleting patient:', error)
+      alert('Network error: Unable to delete patient. Please check your connection.')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -597,8 +633,14 @@ export default function PatientDetailPage() {
                   value={editPatient.name}
                   onChange={(e) => setEditPatient({...editPatient, name: e.target.value})}
                   placeholder="Enter patient name"
+                  maxLength={100}
                   className="border-2 border-border rounded-md"
                 />
+                {editPatient.name.length > 90 && (
+                  <p className="text-sm text-orange-600 mt-1">
+                    {100 - editPatient.name.length} characters remaining
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="editDob">Date of Birth</Label>
@@ -691,10 +733,17 @@ export default function PatientDetailPage() {
               </Button>
               <Button 
                 onClick={updatePatient}
-                disabled={!editPatient.name.trim()}
+                disabled={!editPatient.name.trim() || editPatient.name.length > 100 || isUpdating}
                 className="border-2 border-black rounded-md shadow-lg hover:shadow-xl transition-all duration-300"
               >
-                Update Patient
+                {isUpdating ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Updating...
+                  </>
+                ) : (
+                  'Update Patient'
+                )}
               </Button>
             </div>
           </div>

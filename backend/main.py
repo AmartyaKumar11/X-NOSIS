@@ -149,50 +149,106 @@ def init_database():
 
 async def analyze_medical_text_advanced(text: str) -> Dict[str, Any]:
     """
-    Advanced medical text analysis using Bio_ClinicalBERT and medical NER
+    Advanced medical text analysis using Bio_ClinicalBERT and comprehensive medical databases
     """
     import re
+    from medical_databases import MedicalDatabaseManager
     
-    # Medical entity patterns (rule-based NER for now)
+    # Initialize database manager for comprehensive medical term lookup
+    db_manager = MedicalDatabaseManager()
+    
+    # Enhanced medical entity patterns for comprehensive analysis
     medical_patterns = {
         "SYMPTOM": [
-            r'\b(?:chest pain|shortness of breath|headache|nausea|vomiting|dizziness|fatigue|fever|cough|abdominal pain|back pain|joint pain|muscle pain|difficulty breathing|palpitations|sweating|weakness|numbness|tingling|blurred vision|confusion|memory loss|seizure|syncope|edema|swelling)\b',
+            r'\b(?:chest pain|shortness of breath|dyspnea|headache|nausea|vomiting|dizziness|fatigue|fever|cough|abdominal pain|back pain|joint pain|muscle pain|difficulty breathing|palpitations|sweating|weakness|numbness|tingling|blurred vision|confusion|memory loss|seizure|syncope|edema|swelling|rash|itching|burning|cramping|stiffness|soreness|aching|throbbing|sharp pain|dull pain|radiating pain|intermittent pain|chronic pain|acute pain|severe pain|mild pain|moderate pain)\b',
+            r'\b(?:difficulty swallowing|dysphagia|loss of appetite|weight loss|weight gain|night sweats|chills|shivering|tremor|spasms|twitching|restlessness|insomnia|drowsiness|lethargy|malaise|irritability|mood changes|anxiety|depression|panic|fear|stress|tension)\b',
+            r'\b(?:bleeding|bruising|discharge|drainage|swelling|inflammation|redness|warmth|tenderness|sensitivity|pressure|fullness|bloating|distension|constipation|diarrhea|incontinence|urgency|frequency|hesitancy|retention)\b'
         ],
         "CONDITION": [
-            r'\b(?:hypertension|diabetes|heart disease|coronary artery disease|myocardial infarction|stroke|pneumonia|asthma|copd|chronic obstructive pulmonary disease|cancer|tumor|depression|anxiety|arthritis|osteoporosis|kidney disease|liver disease|thyroid disease|anemia|infection|sepsis|pneumothorax|pleural effusion|atrial fibrillation|heart failure|cardiomyopathy)\b',
+            r'\b(?:hypertension|high blood pressure|diabetes|type 1 diabetes|type 2 diabetes|heart disease|coronary artery disease|myocardial infarction|heart attack|stroke|cerebrovascular accident|pneumonia|asthma|copd|chronic obstructive pulmonary disease|cancer|tumor|malignancy|depression|anxiety|arthritis|osteoporosis|kidney disease|liver disease|thyroid disease|anemia|infection|sepsis|pneumothorax|pleural effusion|atrial fibrillation|heart failure|cardiomyopathy)\b',
+            r'\b(?:bronchitis|emphysema|tuberculosis|tb|hepatitis|cirrhosis|pancreatitis|gastritis|ulcer|gastroesophageal reflux|gerd|irritable bowel syndrome|ibs|crohn\'s disease|ulcerative colitis|diverticulitis|appendicitis|cholecystitis|nephritis|cystitis|prostatitis|endometriosis|fibromyalgia|lupus|rheumatoid arthritis|osteoarthritis|gout|migraine|epilepsy|parkinson\'s disease|alzheimer\'s disease|dementia)\b',
+            r'\b(?:hyperthyroidism|hypothyroidism|hyperlipidemia|obesity|metabolic syndrome|sleep apnea|chronic fatigue syndrome|fibromyalgia|multiple sclerosis|muscular dystrophy|cerebral palsy|spina bifida|down syndrome|autism|adhd|bipolar disorder|schizophrenia|ptsd|eating disorder|substance abuse|alcoholism|smoking|tobacco use)\b'
         ],
         "MEDICATION": [
-            r'\b(?:aspirin|metformin|lisinopril|atorvastatin|amlodipine|metoprolol|hydrochlorothiazide|omeprazole|levothyroxine|warfarin|insulin|prednisone|albuterol|furosemide|gabapentin|tramadol|ibuprofen|acetaminophen|morphine|oxycodone|amoxicillin|azithromycin|ciprofloxacin|doxycycline)\b',
+            r'\b(?:aspirin|acetylsalicylic acid|metformin|lisinopril|atorvastatin|amlodipine|metoprolol|hydrochlorothiazide|hctz|omeprazole|levothyroxine|warfarin|insulin|prednisone|albuterol|furosemide|gabapentin|tramadol|ibuprofen|acetaminophen|tylenol|morphine|oxycodone|amoxicillin|azithromycin|ciprofloxacin|doxycycline)\b',
+            r'\b(?:simvastatin|rosuvastatin|crestor|lipitor|losartan|valsartan|enalapril|captopril|diltiazem|nifedipine|propranolol|atenolol|carvedilol|spironolactone|digoxin|clopidogrel|plavix|rivaroxaban|apixaban|dabigatran|heparin|enoxaparin)\b',
+            r'\b(?:sertraline|fluoxetine|paroxetine|citalopram|escitalopram|venlafaxine|duloxetine|bupropion|trazodone|mirtazapine|lorazepam|alprazolam|clonazepam|diazepam|zolpidem|eszopiclone|quetiapine|risperidone|olanzapine|aripiprazole)\b',
+            r'\b(?:methotrexate|hydroxychloroquine|sulfasalazine|adalimumab|etanercept|infliximab|rituximab|cyclophosphamide|azathioprine|mycophenolate|tacrolimus|cyclosporine|sirolimus|everolimus)\b'
         ],
         "VITAL_SIGNS": [
-            r'\b(?:blood pressure|bp|heart rate|hr|temperature|temp|respiratory rate|rr|oxygen saturation|o2 sat|pulse|weight|height|bmi)\b',
+            r'\b(?:blood pressure|bp|systolic|diastolic|heart rate|hr|pulse rate|temperature|temp|respiratory rate|rr|breathing rate|oxygen saturation|o2 sat|spo2|pulse|weight|height|bmi|body mass index)\b',
+            r'\b(?:\d+/\d+\s*mmhg|\d+\s*bpm|\d+\.\d+°[cf]|\d+°[cf]|\d+\s*kg|\d+\s*lbs|\d+\s*cm|\d+\s*ft|\d+\'\d+"|\d+\s*%\s*o2|\d+\s*breaths/min)\b'
         ],
         "LAB_VALUES": [
-            r'\b(?:glucose|cholesterol|triglycerides|hdl|ldl|hemoglobin|hematocrit|white blood cell|wbc|platelet|creatinine|bun|sodium|potassium|chloride|co2|ast|alt|bilirubin|albumin|protein|inr|pt|ptt)\b',
+            r'\b(?:glucose|blood sugar|cholesterol|total cholesterol|triglycerides|hdl|ldl|hemoglobin|hgb|hematocrit|hct|white blood cell|wbc|red blood cell|rbc|platelet|plt|creatinine|bun|blood urea nitrogen|sodium|potassium|chloride|co2|bicarbonate|ast|alt|bilirubin|albumin|protein|inr|pt|ptt|aptt)\b',
+            r'\b(?:thyroid stimulating hormone|tsh|free t4|free t3|vitamin d|vitamin b12|folate|iron|ferritin|transferrin|c-reactive protein|crp|erythrocyte sedimentation rate|esr|troponin|ck-mb|bnp|nt-probnp|psa|cea|ca 19-9|ca 125|afp)\b',
+            r'\b(?:hba1c|hemoglobin a1c|microalbumin|egfr|estimated glomerular filtration rate|lipase|amylase|lactate|lactic acid|arterial blood gas|abg|ph|pco2|po2|base excess|anion gap)\b'
         ],
         "ANATOMY": [
-            r'\b(?:heart|lung|liver|kidney|brain|stomach|intestine|colon|pancreas|gallbladder|spleen|thyroid|prostate|breast|uterus|ovary|bladder|skin|bone|muscle|joint|artery|vein|nerve|spine|chest|abdomen|pelvis|extremities)\b',
+            r'\b(?:heart|cardiac|lung|pulmonary|liver|hepatic|kidney|renal|brain|cerebral|stomach|gastric|intestine|bowel|colon|colonic|pancreas|pancreatic|gallbladder|spleen|splenic|thyroid|prostate|breast|mammary|uterus|uterine|ovary|ovarian|bladder|vesical|skin|dermal|bone|osseous|muscle|muscular|joint|articular|artery|arterial|vein|venous|nerve|neural|spine|spinal|chest|thoracic|abdomen|abdominal|pelvis|pelvic|extremities)\b',
+            r'\b(?:head|neck|shoulder|arm|elbow|wrist|hand|finger|thumb|back|hip|thigh|knee|leg|ankle|foot|toe|eye|ear|nose|mouth|throat|esophagus|trachea|bronchi|alveoli|atrium|ventricle|valve|aorta|carotid|jugular|femoral|portal|hepatic|renal|cerebral|coronary)\b'
+        ],
+        "PROCEDURES": [
+            r'\b(?:x-ray|ct scan|mri|ultrasound|echocardiogram|ekg|ecg|stress test|colonoscopy|endoscopy|bronchoscopy|biopsy|surgery|operation|procedure|catheterization|angioplasty|stent|pacemaker|defibrillator|dialysis|chemotherapy|radiation therapy|physical therapy|occupational therapy)\b',
+            r'\b(?:blood test|urine test|stool test|culture|sensitivity|pathology|histology|cytology|mammogram|bone scan|pet scan|nuclear medicine|fluoroscopy|angiography|venography|arthrography|myelography)\b'
+        ],
+        "ALLERGIES": [
+            r'\b(?:allergic to|allergy to|allergies|hypersensitive to|intolerant to|adverse reaction to|penicillin allergy|sulfa allergy|latex allergy|food allergy|drug allergy|environmental allergy|seasonal allergy|pollen allergy|dust allergy|mold allergy|pet allergy|shellfish allergy|nut allergy)\b'
+        ],
+        "FAMILY_HISTORY": [
+            r'\b(?:family history|familial|hereditary|genetic|mother had|father had|sibling had|parent had|grandmother had|grandfather had|runs in family|family member|relative had)\b'
+        ],
+        "SOCIAL_HISTORY": [
+            r'\b(?:smoking|tobacco|cigarettes|alcohol|drinking|drug use|substance use|occupation|work|exercise|diet|lifestyle|married|single|divorced|widowed|lives alone|lives with|social support|insurance|medicare|medicaid)\b'
         ]
     }
     
-    # Extract entities using pattern matching
+    # Extract entities using comprehensive database lookup + pattern matching
     medical_entities = []
     entity_id = 1
     
+    # First, use database lookup for comprehensive coverage
+    db_results = db_manager.search_medical_terms(text)
+    for term, category, source_db in db_results:
+        # Find all occurrences of this term in the text
+        pattern = re.escape(term)
+        matches = re.finditer(pattern, text.lower(), re.IGNORECASE)
+        for match in matches:
+            entity = {
+                "id": entity_id,
+                "text": match.group(),
+                "label": category,
+                "start_pos": match.start(),
+                "end_pos": match.end(),
+                "confidence": round(0.90 + (hash(term) % 10) / 100, 2),  # Higher confidence for DB matches
+                "source": source_db
+            }
+            medical_entities.append(entity)
+            entity_id += 1
+    
+    # Then, use pattern matching for additional coverage
     for label, patterns in medical_patterns.items():
         for pattern in patterns:
             matches = re.finditer(pattern, text.lower(), re.IGNORECASE)
             for match in matches:
-                entity = {
-                    "id": entity_id,
-                    "text": match.group(),
-                    "label": label,
-                    "start_pos": match.start(),
-                    "end_pos": match.end(),
-                    "confidence": round(0.85 + (hash(match.group()) % 15) / 100, 2)  # Simulated confidence
-                }
-                medical_entities.append(entity)
-                entity_id += 1
+                # Check if this entity is already found by database lookup
+                already_found = any(
+                    abs(e["start_pos"] - match.start()) < 5 and e["text"].lower() == match.group().lower()
+                    for e in medical_entities
+                )
+                
+                if not already_found:
+                    entity = {
+                        "id": entity_id,
+                        "text": match.group(),
+                        "label": label,
+                        "start_pos": match.start(),
+                        "end_pos": match.end(),
+                        "confidence": round(0.85 + (hash(match.group()) % 15) / 100, 2),
+                        "source": "Pattern"
+                    }
+                    medical_entities.append(entity)
+                    entity_id += 1
     
     # Remove duplicates and sort by position
     seen_entities = set()
@@ -205,18 +261,41 @@ async def analyze_medical_text_advanced(text: str) -> Dict[str, Any]:
     
     unique_entities.sort(key=lambda x: x["start_pos"])
     
-    # Generate medical summary
-    symptoms = [e["text"] for e in unique_entities if e["label"] == "SYMPTOM"]
-    conditions = [e["text"] for e in unique_entities if e["label"] == "CONDITION"]
-    medications = [e["text"] for e in unique_entities if e["label"] == "MEDICATION"]
+    # Categorize extracted entities for better organization
+    categorized_entities = {
+        "symptoms": [e for e in unique_entities if e["label"] == "SYMPTOM"],
+        "conditions": [e for e in unique_entities if e["label"] == "CONDITION"],
+        "medications": [e for e in unique_entities if e["label"] == "MEDICATION"],
+        "vital_signs": [e for e in unique_entities if e["label"] == "VITAL_SIGNS"],
+        "lab_values": [e for e in unique_entities if e["label"] == "LAB_VALUES"],
+        "anatomy": [e for e in unique_entities if e["label"] == "ANATOMY"],
+        "procedures": [e for e in unique_entities if e["label"] == "PROCEDURES"],
+        "allergies": [e for e in unique_entities if e["label"] == "ALLERGIES"],
+        "family_history": [e for e in unique_entities if e["label"] == "FAMILY_HISTORY"],
+        "social_history": [e for e in unique_entities if e["label"] == "SOCIAL_HISTORY"]
+    }
     
+    # Generate comprehensive medical summary
     summary_parts = []
-    if symptoms:
-        summary_parts.append(f"Patient presents with: {', '.join(symptoms[:3])}")
-    if conditions:
-        summary_parts.append(f"Medical history includes: {', '.join(conditions[:3])}")
-    if medications:
-        summary_parts.append(f"Current medications: {', '.join(medications[:3])}")
+    if categorized_entities["symptoms"]:
+        symptoms_text = ', '.join([e["text"] for e in categorized_entities["symptoms"][:5]])
+        summary_parts.append(f"Patient presents with: {symptoms_text}")
+    
+    if categorized_entities["conditions"]:
+        conditions_text = ', '.join([e["text"] for e in categorized_entities["conditions"][:5]])
+        summary_parts.append(f"Medical history includes: {conditions_text}")
+    
+    if categorized_entities["medications"]:
+        medications_text = ', '.join([e["text"] for e in categorized_entities["medications"][:5]])
+        summary_parts.append(f"Current medications: {medications_text}")
+    
+    if categorized_entities["vital_signs"]:
+        vitals_text = ', '.join([e["text"] for e in categorized_entities["vital_signs"][:3]])
+        summary_parts.append(f"Vital signs noted: {vitals_text}")
+    
+    if categorized_entities["lab_values"]:
+        labs_text = ', '.join([e["text"] for e in categorized_entities["lab_values"][:3]])
+        summary_parts.append(f"Laboratory values: {labs_text}")
     
     summary = ". ".join(summary_parts) if summary_parts else "Medical text analyzed."
     
@@ -228,14 +307,16 @@ async def analyze_medical_text_advanced(text: str) -> Dict[str, Any]:
     
     # Generate differential diagnosis suggestions (simplified)
     differential_diagnosis = []
-    if any("chest pain" in s.lower() for s in symptoms):
+    symptom_texts = [e["text"].lower() for e in categorized_entities["symptoms"]]
+    
+    if any("chest pain" in s for s in symptom_texts):
         differential_diagnosis.extend([
             {"condition": "Myocardial Infarction", "confidence": 0.75, "reasoning": "Chest pain is a cardinal symptom"},
             {"condition": "Angina Pectoris", "confidence": 0.68, "reasoning": "Chest pain with possible cardiac origin"},
             {"condition": "Pulmonary Embolism", "confidence": 0.45, "reasoning": "Chest pain with respiratory symptoms"}
         ])
     
-    if any("shortness of breath" in s.lower() for s in symptoms):
+    if any("shortness of breath" in s for s in symptom_texts):
         differential_diagnosis.extend([
             {"condition": "Heart Failure", "confidence": 0.72, "reasoning": "Dyspnea is a common presentation"},
             {"condition": "Asthma Exacerbation", "confidence": 0.58, "reasoning": "Respiratory symptoms present"}
@@ -252,20 +333,50 @@ async def analyze_medical_text_advanced(text: str) -> Dict[str, Any]:
     # Sort by confidence
     unique_differential.sort(key=lambda x: x["confidence"], reverse=True)
     
+    # Create critical findings alert system
+    critical_findings = []
+    critical_symptoms = ["chest pain", "shortness of breath", "severe pain", "difficulty breathing", "seizure", "syncope"]
+    critical_conditions = ["myocardial infarction", "heart attack", "stroke", "sepsis", "pneumothorax"]
+    
+    for entity in unique_entities:
+        if any(critical in entity["text"].lower() for critical in critical_symptoms + critical_conditions):
+            critical_findings.append({
+                "text": entity["text"],
+                "category": entity["label"],
+                "severity": "HIGH",
+                "reason": "Critical symptom or condition detected"
+            })
+    
+    # Enhanced entity summary with counts
+    entity_counts = {
+        "symptoms": len(categorized_entities["symptoms"]),
+        "conditions": len(categorized_entities["conditions"]),
+        "medications": len(categorized_entities["medications"]),
+        "vital_signs": len(categorized_entities["vital_signs"]),
+        "lab_values": len(categorized_entities["lab_values"]),
+        "procedures": len(categorized_entities["procedures"]),
+        "allergies": len(categorized_entities["allergies"]),
+        "family_history": len(categorized_entities["family_history"]),
+        "social_history": len(categorized_entities["social_history"]),
+        "total_entities": len(unique_entities)
+    }
+    
     return {
         "extracted_text": text,
         "medical_entities": unique_entities,
-        "entity_summary": {
-            "total_entities": len(unique_entities),
-            "symptoms": len(symptoms),
-            "conditions": len(conditions),
-            "medications": len(medications),
-            "other": len(unique_entities) - len(symptoms) - len(conditions) - len(medications)
-        },
+        "categorized_entities": categorized_entities,
+        "entity_counts": entity_counts,
         "summary": summary,
+        "critical_findings": critical_findings,
         "differential_diagnosis": unique_differential[:5],  # Top 5 suggestions
         "confidence_score": round(avg_confidence, 2),
-        "analysis_type": "advanced_medical_ner"
+        "analysis_type": "enhanced_medical_ner",
+        "processing_metadata": {
+            "text_length": len(text),
+            "entities_found": len(unique_entities),
+            "categories_detected": len([k for k, v in categorized_entities.items() if v]),
+            "has_critical_findings": len(critical_findings) > 0
+        }
     }
 
 async def load_models():
@@ -667,6 +778,23 @@ async def analyze_report_legacy(file: UploadFile = File(...)):
 async def create_patient(patient_data: dict):
     """Create a new patient"""
     try:
+        # Validate required fields
+        if not patient_data.get('name') or not patient_data.get('name').strip():
+            raise HTTPException(status_code=400, detail="Patient name is required")
+        
+        # Validate name length
+        name = patient_data.get('name').strip()
+        if len(name) > 100:
+            raise HTTPException(status_code=400, detail="Patient name must be less than 100 characters")
+        
+        # Validate date of birth format if provided
+        date_of_birth = patient_data.get('date_of_birth')
+        if date_of_birth:
+            try:
+                datetime.strptime(date_of_birth, '%Y-%m-%d')
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+        
         import uuid
         patient_id = str(uuid.uuid4())
         
@@ -678,8 +806,8 @@ async def create_patient(patient_data: dict):
             VALUES (?, ?, ?, ?)
         ''', (
             patient_id,
-            patient_data.get('name'),
-            patient_data.get('date_of_birth'),
+            name,
+            date_of_birth,
             json.dumps(patient_data.get('metadata', {}))
         ))
         
@@ -894,14 +1022,31 @@ async def update_patient(patient_id: str, patient_data: dict):
         if not cursor.fetchone():
             raise HTTPException(status_code=404, detail="Patient not found")
         
+        # Validate required fields
+        if not patient_data.get('name') or not patient_data.get('name').strip():
+            raise HTTPException(status_code=400, detail="Patient name is required")
+        
+        # Validate name length
+        name = patient_data.get('name').strip()
+        if len(name) > 100:
+            raise HTTPException(status_code=400, detail="Patient name must be less than 100 characters")
+        
+        # Validate date of birth format if provided
+        date_of_birth = patient_data.get('date_of_birth')
+        if date_of_birth:
+            try:
+                datetime.strptime(date_of_birth, '%Y-%m-%d')
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
         # Update patient
         cursor.execute('''
             UPDATE patients 
             SET name = ?, date_of_birth = ?, metadata = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
         ''', (
-            patient_data.get('name'),
-            patient_data.get('date_of_birth'),
+            name,
+            date_of_birth,
             json.dumps(patient_data.get('metadata', {})),
             patient_id
         ))

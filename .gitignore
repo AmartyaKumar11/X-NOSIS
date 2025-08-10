@@ -5,3 +5,9 @@ dist/
 .next/
 .DS_Store
 *.log
+
+# LOINC database files
+Loinc_2.80/
+
+# Medical database files
+medical_knowledge.db
