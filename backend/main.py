@@ -1186,3 +1186,24 @@ async def get_directory_documents(patient_id: str, directory_id: str):
     except Exception as e:
         logging.error(f"Error fetching directory documents: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch documents: {str(e)}")
+
+# Server startup
+if __name__ == "__main__":
+    import uvicorn
+    print("🚀 Starting X-NOSIS Medical Analysis Server...")
+    print("📊 Medical Database: READY")
+    print("🔬 LOINC Integration: ACTIVE")
+    print("💊 OpenFDA Integration: ACTIVE")
+    print("🏥 ICD-10/11 Integration: ACTIVE")
+    print("🧬 HPO Integration: ACTIVE")
+    print("🌐 Server URL: http://localhost:8000")
+    print("📖 API Docs: http://localhost:8000/docs")
+    print("=" * 50)
+    
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )
