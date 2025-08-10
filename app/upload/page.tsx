@@ -48,6 +48,32 @@ export default function UploadPage() {
   const [directories, setDirectories] = useState<Directory[]>([]);
   const [selectedDirectoryId, setSelectedDirectoryId] = useState<string>("");
   const [isLoadingPatients, setIsLoadingPatients] = useState(true);
+  const [prefilledInfo, setPrefilledInfo] = useState<{
+    patientName?: string;
+    directoryName?: string;
+  }>({});
+
+  // Handle URL parameters for pre-filling patient and directory
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const patientId = urlParams.get('patientId');
+    const directoryId = urlParams.get('directoryId');
+    const patientName = urlParams.get('patientName');
+    const directoryName = urlParams.get('directoryName');
+    
+    if (patientId) {
+      setSelectedPatientId(patientId);
+    }
+    if (directoryId) {
+      setSelectedDirectoryId(directoryId);
+    }
+    if (patientName || directoryName) {
+      setPrefilledInfo({
+        patientName: patientName || undefined,
+        directoryName: directoryName || undefined
+      });
+    }
+  }, []);
 
   // Fetch patients on component mount
   useEffect(() => {
@@ -139,8 +165,12 @@ export default function UploadPage() {
     formData.append("file", actualFile);
     
     try {
-      // Call our enhanced backend API
-      const res = await fetch("http://localhost:8000/analyze/text", {
+      // Choose API endpoint based on whether patient/directory are selected
+      const apiUrl = selectedPatientId && selectedDirectoryId 
+        ? `http://localhost:8000/patients/${selectedPatientId}/directories/${selectedDirectoryId}/documents`
+        : "http://localhost:8000/analyze/text";
+      
+      const res = await fetch(apiUrl, {
         method: "POST",
         body: formData,
       });
@@ -156,14 +186,16 @@ export default function UploadPage() {
       const transformedData = {
         success: data.success,
         analysis_id: data.analysis_id,
-        text: data.results?.extracted_text || testContent,
+        document_id: data.document_id, // For patient documents
+        stored_in_patient_db: !!(selectedPatientId && selectedDirectoryId),
+        text: data.analysis_results?.extracted_text || data.results?.extracted_text || testContent,
         result: {
-          medical_entities: data.results?.medical_entities || [],
-          entity_summary: data.results?.entity_summary || {},
-          differential_diagnosis: data.results?.differential_diagnosis || [],
-          summary: data.results?.summary || "Analysis completed",
-          confidence_score: data.results?.confidence_score || 0,
-          processing_time: data.results?.processing_time || 0
+          medical_entities: data.analysis_results?.medical_entities || data.results?.medical_entities || [],
+          entity_summary: data.analysis_results?.entity_summary || data.results?.entity_summary || {},
+          differential_diagnosis: data.analysis_results?.differential_diagnosis || data.results?.differential_diagnosis || [],
+          summary: data.analysis_results?.summary || data.results?.summary || "Analysis completed",
+          confidence_score: data.analysis_results?.confidence_score || data.results?.confidence_score || 0,
+          processing_time: data.analysis_results?.processing_time || data.results?.processing_time || 0
         }
       };
       
@@ -258,13 +290,20 @@ export default function UploadPage() {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <User className="h-5 w-5 mr-2" />
-                Select Patient & Directory
+                {prefilledInfo.patientName ? `Upload for ${prefilledInfo.patientName}` : 'Select Patient & Directory'}
+                {prefilledInfo.patientName && prefilledInfo.directoryName && (
+                  <span className="text-sm font-normal text-muted-foreground ml-2">
+                    → {prefilledInfo.directoryName}
+                  </span>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Patient</label>
+                  <label className="block text-sm font-medium mb-2">
+                    Patient
+                  </label>
                   <Select value={selectedPatientId} onValueChange={setSelectedPatientId}>
                     <SelectTrigger className="border-2 border-border rounded-md">
                       <SelectValue placeholder={isLoadingPatients ? "Loading patients..." : "Select a patient"} />
@@ -283,7 +322,9 @@ export default function UploadPage() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-2">Directory</label>
+                  <label className="block text-sm font-medium mb-2">
+                    Directory
+                  </label>
                   <Select 
                     value={selectedDirectoryId} 
                     onValueChange={setSelectedDirectoryId}
@@ -306,13 +347,7 @@ export default function UploadPage() {
                 </div>
               </div>
               
-              {selectedPatientId && selectedDirectoryId && (
-                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
-                  <p className="text-sm text-green-800">
-                    ✅ Ready to upload to <strong>{directories.find(d => d.id === selectedDirectoryId)?.name}</strong> for patient <strong>{patients.find(p => p.id === selectedPatientId)?.name}</strong>
-                  </p>
-                </div>
-              )}
+
             </CardContent>
           </Card>
 

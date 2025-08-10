@@ -17,7 +17,7 @@ try:
     import numpy as np
     from PIL import Image
     AI_PACKAGES_AVAILABLE = True
-    print("✅ AI packages loaded successfully!")
+    print("AI packages loaded successfully!")
 except ImportError as e:
     print(f"⚠️  AI packages not installed: {e}")
     print("   Server will run in basic mode. Install requirements: pip install -r requirements.txt")
@@ -152,10 +152,10 @@ async def analyze_medical_text_advanced(text: str) -> Dict[str, Any]:
     Advanced medical text analysis using Bio_ClinicalBERT and comprehensive medical databases
     """
     import re
-    from medical_databases import MedicalDatabaseManager
+    from fast_medical_db import get_fast_medical_db
     
-    # Initialize database manager for comprehensive medical term lookup
-    db_manager = MedicalDatabaseManager()
+    # Initialize fast medical database for instant lookup
+    db_manager = get_fast_medical_db()
     
     # Enhanced medical entity patterns for comprehensive analysis
     medical_patterns = {
@@ -207,8 +207,8 @@ async def analyze_medical_text_advanced(text: str) -> Dict[str, Any]:
     medical_entities = []
     entity_id = 1
     
-    # First, use database lookup for comprehensive coverage
-    db_results = db_manager.search_medical_terms(text)
+    # First, use fast database lookup for comprehensive coverage
+    db_results = db_manager.search_terms(text)
     for term, category, source_db in db_results:
         # Find all occurrences of this term in the text
         pattern = re.escape(term)
@@ -1141,6 +1141,99 @@ async def create_directory(patient_id: str, directory_data: dict):
         logging.error(f"Error creating directory: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to create directory: {str(e)}")
 
+@app.post("/patients/{patient_id}/directories/{directory_id}/documents")
+async def upload_patient_document(patient_id: str, directory_id: str, file: UploadFile = File(...)):
+    """Upload and store a document for a specific patient and directory"""
+    try:
+        # Validate file type
+        allowed_types = ['application/pdf', 'text/plain', 'application/msword', 
+                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+        if file.content_type not in allowed_types:
+            raise HTTPException(status_code=400, detail="Unsupported file type")
+        
+        # Validate file size (max 10MB)
+        file_content = await file.read()
+        if len(file_content) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="File too large (max 10MB)")
+        
+        # Create uploads directory if it doesn't exist
+        uploads_dir = f"uploads/patients/{patient_id}/{directory_id}"
+        os.makedirs(uploads_dir, exist_ok=True)
+        
+        # Generate unique filename
+        import uuid
+        file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'txt'
+        unique_filename = f"{uuid.uuid4().hex[:8]}_{file.filename}"
+        file_path = os.path.join(uploads_dir, unique_filename)
+        
+        # Save file to disk
+        with open(file_path, "wb") as f:
+            f.write(file_content)
+        
+        # Analyze the document
+        if file.content_type == 'application/pdf':
+            import pdfplumber
+            with pdfplumber.open(file_path) as pdf:
+                text = ""
+                for page in pdf.pages:
+                    text += page.extract_text() or ""
+        else:
+            # For text files
+            text = file_content.decode('utf-8', errors='ignore')
+        
+        # Perform medical analysis
+        analysis_results = await analyze_medical_text_advanced(text)
+        
+        # Save analysis to database
+        analysis_id = save_analysis_result(
+            user_id=f"patient_{patient_id}",
+            file_name=file.filename,
+            file_type=file.content_type,
+            analysis_type="patient_document",
+            results=analysis_results,
+            confidence_score=analysis_results.get("confidence_score", 0)
+        )
+        
+        # Store document in patient_documents table
+        document_id = str(uuid.uuid4())
+        conn = sqlite3.connect('dip_analysis.db')
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO patient_documents (
+                id, name, file_type, file_size, file_path, 
+                directory_id, patient_id, analysis_id, tags
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            document_id,
+            file.filename,
+            file.content_type,
+            len(file_content),
+            file_path,
+            directory_id,
+            patient_id,
+            analysis_id,
+            json.dumps([])  # Empty tags for now
+        ))
+        
+        conn.commit()
+        conn.close()
+        
+        return {
+            "success": True,
+            "document_id": document_id,
+            "analysis_id": analysis_id,
+            "message": "Document uploaded and analyzed successfully",
+            "analysis_results": analysis_results,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error uploading patient document: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to upload document: {str(e)}")
+
 @app.get("/patients/{patient_id}/directories/{directory_id}/documents")
 async def get_directory_documents(patient_id: str, directory_id: str):
     """Get documents in a specific directory"""
@@ -1190,14 +1283,14 @@ async def get_directory_documents(patient_id: str, directory_id: str):
 # Server startup
 if __name__ == "__main__":
     import uvicorn
-    print("🚀 Starting X-NOSIS Medical Analysis Server...")
-    print("📊 Medical Database: READY")
-    print("🔬 LOINC Integration: ACTIVE")
-    print("💊 OpenFDA Integration: ACTIVE")
-    print("🏥 ICD-10/11 Integration: ACTIVE")
-    print("🧬 HPO Integration: ACTIVE")
-    print("🌐 Server URL: http://localhost:8000")
-    print("📖 API Docs: http://localhost:8000/docs")
+    print("Starting X-NOSIS Medical Analysis Server...")
+    print("Medical Database: READY")
+    print("LOINC Integration: ACTIVE")
+    print("OpenFDA Integration: ACTIVE")
+    print("ICD-10/11 Integration: ACTIVE")
+    print("HPO Integration: ACTIVE")
+    print("Server URL: http://localhost:8000")
+    print("API Docs: http://localhost:8000/docs")
     print("=" * 50)
     
     uvicorn.run(

@@ -32,6 +32,7 @@ interface MedicalEntity {
   start_pos: number
   end_pos: number
   confidence: number
+  source?: string
 }
 
 interface CriticalFinding {

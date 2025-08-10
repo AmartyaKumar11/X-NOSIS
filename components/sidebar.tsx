@@ -38,7 +38,7 @@ const navigation = [
   { name: "Chat", href: "/chat", icon: MessageSquare },
   { name: "Patients", href: "/patients", icon: Users },
   { name: "AI Analysis", href: "/analysis", icon: BarChart3 },
-  { name: "Analyse Report", href: "/upload", icon: Upload },
+  { name: "Analyse Report", href: "/analysis", icon: Upload },
   { name: "History", href: "/history", icon: History },
   { name: "Profile", href: "/profile", icon: Stethoscope },
   { name: "Settings", href: "/settings", icon: Settings },

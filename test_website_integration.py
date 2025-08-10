@@ -24,7 +24,7 @@ def test_website_medical_analysis():
     
     # Test the text analysis endpoint (what website uses)
     try:
-        url = "http://localhost:8000/analyze-text"
+        url = "http://localhost:8000/analyze/text-direct"
         payload = {"text": test_text}
         
         print("📡 Sending request to website API endpoint...")
@@ -133,7 +133,7 @@ def test_file_upload_endpoint():
             f.write(test_content)
         
         # Test file upload endpoint
-        url = "http://localhost:8000/analyze-file"
+        url = "http://localhost:8000/analyze/text"
         
         with open("test_medical_report_upload.txt", "rb") as f:
             files = {"file": ("test_report.txt", f, "text/plain")}

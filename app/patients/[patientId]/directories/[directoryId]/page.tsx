@@ -232,7 +232,7 @@ export default function DirectoryDetailPage() {
               />
             </div>
             
-            <Link href="/upload">
+            <Link href={`/upload?patientId=${patientId}&directoryId=${directoryId}&patientName=${encodeURIComponent(patient?.name || '')}&directoryName=${encodeURIComponent(directory?.name || '')}`}>
               <Button className="border-2 border-black rounded-md shadow-lg hover:shadow-xl transition-all duration-300">
                 <Upload className="mr-2 h-4 w-4" />
                 Upload Documents
@@ -255,7 +255,7 @@ export default function DirectoryDetailPage() {
                   }
                 </p>
                 {!searchQuery && (
-                  <Link href="/upload">
+                  <Link href={`/upload?patientId=${patientId}&directoryId=${directoryId}&patientName=${encodeURIComponent(patient?.name || '')}&directoryName=${encodeURIComponent(directory?.name || '')}`}>
                     <Button className="border-2 border-black rounded-md shadow-lg hover:shadow-xl transition-all duration-300">
                       <Upload className="mr-2 h-4 w-4" />
                       Upload First Document
