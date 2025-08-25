@@ -59,11 +59,11 @@ class FastMedicalDatabase:
     def populate_database(self):
         """Populate database with all medical terms"""
         if self.is_database_populated():
-            print("✅ Fast medical database already populated!")
+            print("Fast medical database already populated!")
             return
         
-        print("🔄 Building fast medical database...")
-        print("⚠️  Database not populated. Please run expand_medical_db.py first!")
+        print("Building fast medical database...")
+        print("Database not populated. Please run expand_medical_db.py first!")
         return
     
     def search_terms(self, text: str, limit: int = 100) -> List[Tuple[str, str, str]]:
